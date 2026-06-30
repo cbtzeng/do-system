@@ -1,0 +1,96 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.table th {
+  background: #f2f2f2;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.numInput {
+  text-align: right;
+}
+
+.subtotal {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.delBtn {
+  border: 1px solid #d33;
+  background: #fff;
+  color: #d33;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.delBtn:hover:not(:disabled) {
+  background: #fdeaea;
+}
+
+.delBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.addBtn {
+  align-self: flex-start;
+  border: 1px solid #2a7;
+  background: #fff;
+  color: #2a7;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.addBtn:hover {
+  background: #eafaf2;
+}
+
+.totalRow td {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.colName {
+  width: 30%;
+}
+.colSize {
+  width: 16%;
+}
+.colNum {
+  width: 14%;
+}
+.colSub {
+  width: 16%;
+}
+.colAct {
+  width: 80px;
+}
