@@ -1,0 +1,14 @@
+# worktrees
+.worktrees/
+
+# python
+print-agent/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# node (frontend has its own .gitignore too)
+node_modules/
+
+# os
+.DS_Store
