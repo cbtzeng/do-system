@@ -1,0 +1,64 @@
+.preview {
+  border: 2px solid #333;
+  padding: 16px;
+  background: #fffef7;
+  width: 100%;
+  max-width: 520px;
+  font-size: 13px;
+  color: #222;
+  /* 模擬點陣印表機的列印質感 */
+  font-family: "Courier New", monospace;
+}
+
+.title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.table th,
+.table td {
+  border: 1px solid #555;
+  padding: 4px 6px;
+}
+
+.table th {
+  background: #efece0;
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  color: #aaa;
+}
+
+.total {
+  font-weight: 700;
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #444;
+}
