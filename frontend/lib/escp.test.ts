@@ -4,12 +4,25 @@ import type { DoForm } from "./contract";
 
 const ESC = 0x1b;
 
+const emptyHeader = {
+  customerName: "",
+  deliveryAddress: "",
+  phone: "",
+  taxId: "",
+  invoiceNo: "",
+  orderNo: "",
+  date: "",
+  remark: "",
+};
+
 function baseForm(overrides: Partial<DoForm> = {}): DoForm {
   return {
+    header: emptyHeader,
     lines: [
-      { name: "Widget", size: "M", qty: 2, price: 600 },
-      { name: "Gadget", size: "L", qty: 1, price: 350 },
+      { name: "Widget", unit: "pcs", qty: 2, price: 600 },
+      { name: "Gadget", unit: "pcs", qty: 1, price: 350 },
     ],
+    taxAmount: 0,
     offsetX: 10,
     offsetY: 30,
     ...overrides,
@@ -40,25 +53,34 @@ describe("buildEscp", () => {
     expect(Array.from(a)).not.toEqual(Array.from(b));
   });
 
+  it("emits ESC C 33 (page length) right after ESC @", () => {
+    const bytes = buildEscp(baseForm());
+    // ESC @ (index 0,1) 之後緊接 ESC C n,鎖定連續三聯單頁長 5.5" = 33 行
+    expect(bytes[2]).toBe(ESC);
+    expect(bytes[3]).toBe(0x43);
+    expect(bytes[4]).toBe(33);
+  });
+
   it("emits ESC 3 n with offsetY as line spacing", () => {
     const bytes = buildEscp(baseForm({ offsetY: 42 }));
-    expect(bytes[2]).toBe(ESC);
-    expect(bytes[3]).toBe(0x33);
-    expect(bytes[4]).toBe(42);
+    // ESC @ (2) + ESC C n (3) = index 5
+    expect(bytes[5]).toBe(ESC);
+    expect(bytes[6]).toBe(0x33);
+    expect(bytes[7]).toBe(42);
   });
 
   it("emits ESC $ nL nH per line with offsetX encoded little-endian", () => {
     const bytes = buildEscp(baseForm({ offsetX: 300 }));
-    // first line ESC $ begins right after ESC @ (2) + ESC 3 n (3) = index 5
-    expect(bytes[5]).toBe(ESC);
-    expect(bytes[6]).toBe(0x24);
-    expect(bytes[7]).toBe(300 & 0xff); // 44
-    expect(bytes[8]).toBe((300 >> 8) & 0xff); // 1
+    // first line ESC $ begins after ESC @ (2) + ESC C n (3) + ESC 3 n (3) = index 8
+    expect(bytes[8]).toBe(ESC);
+    expect(bytes[9]).toBe(0x24);
+    expect(bytes[10]).toBe(300 & 0xff); // 44
+    expect(bytes[11]).toBe((300 >> 8) & 0xff); // 1
   });
 
   it("contains the subtotal text (qty * price) as ASCII", () => {
     const bytes = buildEscp(
-      baseForm({ lines: [{ name: "X", size: "M", qty: 3, price: 100 }] }),
+      baseForm({ lines: [{ name: "X", unit: "pcs", qty: 3, price: 100 }] }),
     );
     const text = String.fromCharCode(...Array.from(bytes));
     expect(text).toContain("300"); // 3 * 100
