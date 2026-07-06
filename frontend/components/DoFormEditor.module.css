@@ -4,6 +4,56 @@
   gap: 18px;
 }
 
+/* 版型切換 */
+.templateSwitch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  align-self: flex-start;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  background: var(--surface);
+  color: var(--brand-active);
+  box-shadow: var(--shadow-sm);
+}
+
+/* metal 版底部欄位 */
+.metalFoot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.metalFoot > label:first-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 560px) {
+  .metalFoot {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* 抬頭欄位網格 */
 .headerGrid {
   display: grid;
@@ -200,6 +250,9 @@
 }
 .colUnit {
   width: 64px;
+}
+.colMid {
+  width: 18%;
 }
 .colNum {
   width: 13%;

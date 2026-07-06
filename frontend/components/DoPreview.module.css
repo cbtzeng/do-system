@@ -30,6 +30,207 @@
   min-width: 0;
 }
 
+/* ========================= metal 版(峻晟金屬) ========================= */
+.metal {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.mBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.7em 0.9em;
+  min-width: 0;
+}
+
+/* 抬頭:左客戶 / 中標題 / 右公司資訊 */
+.mTop {
+  display: grid;
+  grid-template-columns: 1.15fr 1.1fr 1fr;
+  gap: 0.5em;
+  align-items: start;
+  margin-bottom: 0.5em;
+}
+
+.mCust {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  padding-top: 0.3em;
+}
+
+.mCustRow {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.3em;
+}
+
+.mLabel {
+  white-space: nowrap;
+}
+
+.mVal {
+  flex: 1;
+  border-bottom: 1px dotted #9aa9a0;
+  min-width: 0;
+  padding: 0 0.2em;
+  word-break: break-all;
+}
+
+.mTitleBlock {
+  text-align: center;
+  white-space: nowrap;
+  padding-top: 0.2em;
+}
+
+.mTitle {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.mDoc {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  margin-top: 0.15em;
+}
+
+.mCompany {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12em;
+  font-size: 0.92em;
+  white-space: nowrap;
+  align-items: flex-start;
+}
+
+.mOrderNo {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.mDate {
+  margin-top: 0.25em;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+/* metal 品項表 */
+.mTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.mTable th,
+.mTable td {
+  border: 1px solid var(--ink);
+  padding: 0.22em 0.4em;
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mTable th {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: #f3f6f3;
+  white-space: nowrap;
+}
+
+.mPadRow td {
+  height: 1.5em;
+}
+
+.mcName {
+  width: 26%;
+}
+.mcMat {
+  width: 16%;
+}
+.mcSize {
+  width: 20%;
+}
+.mcNum {
+  width: 11%;
+}
+.mcRemark {
+  width: 15%;
+}
+
+.mRemarkCell {
+  vertical-align: top;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* metal 底部:承運車行 / 車號 + 簽章 */
+.mBottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1em;
+  margin-top: auto;
+  padding-top: 0.7em;
+}
+
+.mCarrier {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  min-width: 45%;
+}
+
+.mCarrierRow {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.3em;
+}
+
+.mSigns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  align-items: flex-start;
+}
+
+.mSign {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.mSignLine {
+  display: inline-block;
+  width: 6em;
+  border-bottom: 1px solid var(--ink);
+  margin-left: 0.2em;
+}
+
+/* metal 右側三聯直書條 */
+.mCopies {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.6em 0.35em;
+  border-left: 1px solid var(--ink);
+  letter-spacing: 0.12em;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  background: #faf9f4;
+}
+
+.mCopies span {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+
 /* 抬頭 */
 .top {
   display: grid;

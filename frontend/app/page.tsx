@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { DoForm } from "../lib/contract";
 import DoFormEditor from "../components/DoFormEditor";
 import DoPreview from "../components/DoPreview";
@@ -9,8 +9,11 @@ import { emptyDoForm } from "../components/doForm";
 import styles from "./page.module.css";
 
 export default function Home() {
-  // 整份 DoForm 保存在 page 狀態,列印控制項(Issue #2)直接取用同一份 form。
+  // 整份 DoForm 保存在 page 狀態,列印控制項直接取用同一份 form。
   const [form, setForm] = useState<DoForm>(() => emptyDoForm());
+
+  // 預覽根節點:圖形列印(#A)以 html-to-image 擷取此節點成 PNG。
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // PrintControls 的 X/Y 微調寫回同一份 form,讓預覽與列印一致。
   const handleOffsetChange = (offsetX: number, offsetY: number) =>
@@ -29,8 +32,12 @@ export default function Home() {
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>預覽</h2>
-          <DoPreview form={form} />
-          <PrintControls form={form} onOffsetChange={handleOffsetChange} />
+          <DoPreview form={form} ref={previewRef} />
+          <PrintControls
+            form={form}
+            previewRef={previewRef}
+            onOffsetChange={handleOffsetChange}
+          />
         </section>
       </div>
     </div>

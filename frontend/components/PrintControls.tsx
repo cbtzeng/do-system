@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import type { DoForm } from "../lib/contract";
-import { getPrinters, printForm } from "../lib/printClient";
+import { getPrinters, printImage } from "../lib/printClient";
 import styles from "./PrintControls.module.css";
 
 interface PrintControlsProps {
   form: DoForm;
+  /** 預覽根節點:圖形列印擷取此節點成 PNG。 */
+  previewRef: RefObject<HTMLElement | null>;
   onOffsetChange?: (x: number, y: number) => void;
 }
 
@@ -18,6 +20,7 @@ type Status =
 
 export default function PrintControls({
   form,
+  previewRef,
   onOffsetChange,
 }: PrintControlsProps) {
   const [printers, setPrinters] = useState<string[]>([]);
@@ -62,9 +65,15 @@ export default function PrintControls({
       setStatus({ kind: "error", message: "請先選擇印表機" });
       return;
     }
+    const node = previewRef.current;
+    if (!node) {
+      setStatus({ kind: "error", message: "找不到預覽內容,無法列印" });
+      return;
+    }
     setStatus({ kind: "printing" });
     try {
-      const res = await printForm(selectedPrinter, form);
+      // WYSIWYG:擷取預覽 DOM → PNG → 送本機 agent 轉 ESC/P 圖形。
+      const res = await printImage(selectedPrinter, node);
       if (res.ok) {
         setStatus({
           kind: "success",

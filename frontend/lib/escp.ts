@@ -22,8 +22,11 @@
 //   7. FF             0x0C               換頁 (form feed),送出整張單。
 // -----------------------------------------------------------------------------
 // 第一版僅支援 ASCII / 數字 (中文 code page 之後再處理)。
+//
+// 註:此文字 ESC/P 路徑是為 standard(公版 K,含金額)版設計。
+// metal(峻晟金屬)版走圖形列印(/print-image + html-to-image),不經此函式。
 
-import type { DoForm } from "./contract";
+import type { StandardDoForm } from "./contract";
 
 const ESC = 0x1b;
 
@@ -52,7 +55,7 @@ function formatLine(name: string, qty: number, price: number): string {
  * 由表單建立 ESC/P2 位元組。
  * @see 檔頭的 byte layout 註解。
  */
-export function buildEscp(form: DoForm): Uint8Array {
+export function buildEscp(form: StandardDoForm): Uint8Array {
   const bytes: number[] = [];
 
   // 1. ESC @ — 初始化
