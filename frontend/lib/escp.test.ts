@@ -1,22 +1,25 @@
 import { describe, it, expect } from "vitest";
 import { buildEscp, toBase64 } from "./escp";
-import type { DoForm } from "./contract";
+import type { StandardDoForm } from "./contract";
 
 const ESC = 0x1b;
 
 const emptyHeader = {
   customerName: "",
-  deliveryAddress: "",
+  address: "",
   phone: "",
-  taxId: "",
-  invoiceNo: "",
   orderNo: "",
   date: "",
   remark: "",
+  carrier: "",
+  vehicleNo: "",
+  taxId: "",
+  invoiceNo: "",
 };
 
-function baseForm(overrides: Partial<DoForm> = {}): DoForm {
+function baseForm(overrides: Partial<StandardDoForm> = {}): StandardDoForm {
   return {
+    template: "standard",
     header: emptyHeader,
     lines: [
       { name: "Widget", unit: "pcs", qty: 2, price: 600 },

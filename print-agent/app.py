@@ -4,8 +4,9 @@
 經 macOS CUPS `lp -d <printer> -o raw` 送到 LQ-310。
 
 介面契約見 frontend/lib/contract.ts:
-  POST /print     body {printer, data(base64)} -> {ok, job_id} | {ok:false, error}
-  GET  /printers  -> {printers: [...]}
+  POST /print        body {printer, data(base64)} -> {ok, job_id} | {ok:false, error}
+  POST /print-image  body {printer, image(base64 PNG), width_dots?} -> {ok, job_id} | {ok:false, error}
+  GET  /printers     -> {printers: [...]}
   CORS: 允許 http://localhost:3000
 """
 
@@ -16,6 +17,8 @@ import subprocess
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+from escp_image import render_png_to_escp
 
 PORT = 9100
 ALLOWED_ORIGIN = "http://localhost:3000"
@@ -59,7 +62,14 @@ def print_route():
     except (binascii.Error, ValueError):
         return jsonify(ok=False, error="invalid base64 data"), 400
 
-    # 以 list 傳參,絕不用 shell=True / 字串插值,printer 名稱安全。
+    return _lp_raw(printer, raw)
+
+
+def _lp_raw(printer: str, raw: bytes):
+    """把 raw bytes 經 `lp -d <printer> -o raw` 送到印表機,回傳 Flask 回應。
+
+    以 list 傳參,絕不用 shell=True / 字串插值,printer 名稱安全。
+    """
     cmd = ["lp", "-d", printer, "-o", "raw"]
     try:
         result = subprocess.run(
@@ -76,6 +86,49 @@ def print_route():
 
     stdout = (result.stdout or b"").decode("utf-8", "replace")
     return jsonify(ok=True, job_id=_parse_job_id(stdout))
+
+
+@app.post("/print-image")
+def print_image_route():
+    """圖形列印(WYSIWYG):收 base64 PNG → escp_image 轉 ESC/P 點陣 → lp -o raw。"""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(ok=False, error="invalid JSON body"), 400
+
+    printer = body.get("printer")
+    image = body.get("image")
+    width_dots = body.get("width_dots")
+
+    if not printer or not isinstance(printer, str):
+        return jsonify(ok=False, error="missing or invalid 'printer'"), 400
+    if not isinstance(image, str) or image == "":
+        return jsonify(ok=False, error="missing or invalid 'image'"), 400
+
+    # 去掉可能的 data: 前綴,只取 base64 本體。
+    if "," in image and image.strip().startswith("data:"):
+        image = image.split(",", 1)[1]
+
+    # base64 decode(嚴格,壞資料即報錯)
+    try:
+        png = base64.b64decode(image, validate=True)
+    except (binascii.Error, ValueError):
+        return jsonify(ok=False, error="invalid base64 image"), 400
+
+    # width_dots:可選,預設 1400。
+    try:
+        w = int(width_dots) if width_dots is not None else 1400
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="invalid 'width_dots'"), 400
+    if w <= 0:
+        return jsonify(ok=False, error="invalid 'width_dots'"), 400
+
+    # PNG → ESC/P 點陣
+    try:
+        raw = render_png_to_escp(png, w)
+    except Exception as exc:  # noqa: BLE001 — 回報給前端,勿讓 agent 掛掉
+        return jsonify(ok=False, error=f"image render failed: {exc}"), 400
+
+    return _lp_raw(printer, raw)
 
 
 def _parse_printers(stdout: str) -> list:
