@@ -1,13 +1,18 @@
-import type { DoForm, DoLine } from "../lib/contract";
+import type { DoForm, DoHeader, DoLine } from "../lib/contract";
 
-/** 單列小計 = 數量 × 單價。 */
+/** 單列金額 = 數量 × 單價。 */
 export function lineSubtotal(line: DoLine): number {
   return line.qty * line.price;
 }
 
-/** 表單總計 = 所有列小計之和。 */
+/** 金額合計 = 所有列金額之和。 */
 export function grandTotal(form: DoForm): number {
   return form.lines.reduce((sum, line) => sum + lineSubtotal(line), 0);
+}
+
+/** 總計 = 金額合計 + 稅額。 */
+export function documentTotal(form: DoForm): number {
+  return grandTotal(form) + (form.taxAmount || 0);
 }
 
 /** 顯示用金額格式(千分位,最多兩位小數)。 */
@@ -18,10 +23,26 @@ export function formatMoney(value: number): string {
   });
 }
 
-/** 預設空白表單:一列空白項目,offset 皆為 0(offset UI 由 Issue #2 提供)。 */
+/** 空白抬頭。 */
+export function emptyHeader(): DoHeader {
+  return {
+    customerName: "",
+    deliveryAddress: "",
+    phone: "",
+    taxId: "",
+    invoiceNo: "",
+    orderNo: "",
+    date: "",
+    remark: "",
+  };
+}
+
+/** 預設空白表單:抬頭空白、一列空白品項、稅額與 offset 皆為 0。 */
 export function emptyDoForm(): DoForm {
   return {
-    lines: [{ name: "", size: "", qty: 0, price: 0 }],
+    header: emptyHeader(),
+    lines: [{ name: "", unit: "", qty: 0, price: 0 }],
+    taxAmount: 0,
     offsetX: 0,
     offsetY: 0,
   };

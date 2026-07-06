@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DoForm } from "../lib/contract";
 import { getPrinters, printForm } from "../lib/printClient";
+import styles from "./PrintControls.module.css";
 
 interface PrintControlsProps {
   form: DoForm;
@@ -81,31 +82,39 @@ export default function PrintControls({
   }
 
   return (
-    <div className="print-controls">
-      <div>
-        <label>
-          X 微調 (1/60 吋)
+    <div className={styles.controls}>
+      <div className={styles.fields}>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="offset-x">
+            X 微調 (1/60 吋)
+          </label>
           <input
+            id="offset-x"
+            className={styles.input}
             type="number"
             value={form.offsetX}
             onChange={handleX}
           />
-        </label>
-      </div>
-      <div>
-        <label>
-          Y 微調 (1/180 吋)
+        </div>
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="offset-y">
+            Y 微調 (1/180 吋)
+          </label>
           <input
+            id="offset-y"
+            className={styles.input}
             type="number"
             value={form.offsetY}
             onChange={handleY}
           />
-        </label>
-      </div>
-      <div>
-        <label>
-          印表機
+        </div>
+        <div className={`${styles.field} ${styles.printerField}`}>
+          <label className={styles.label} htmlFor="printer-select">
+            印表機
+          </label>
           <select
+            id="printer-select"
+            className={styles.select}
             value={selectedPrinter}
             onChange={(e) => setSelectedPrinter(e.target.value)}
           >
@@ -116,22 +125,25 @@ export default function PrintControls({
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
+
       <button
         type="button"
+        className={styles.printBtn}
         onClick={handlePrint}
         disabled={status.kind === "printing"}
       >
-        {status.kind === "printing" ? "列印中…" : "列印"}
+        {status.kind === "printing" ? "列印中…" : "🖨  列印"}
       </button>
+
       {status.kind === "success" && (
-        <p role="status" style={{ color: "green" }}>
+        <p role="status" className={`${styles.status} ${styles.success}`}>
           {status.message}
         </p>
       )}
       {status.kind === "error" && (
-        <p role="alert" style={{ color: "red" }}>
+        <p role="alert" className={`${styles.status} ${styles.error}`}>
           {status.message}
         </p>
       )}

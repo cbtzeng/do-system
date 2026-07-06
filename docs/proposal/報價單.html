@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "PingFang TC", "Heiti TC", "Songti TC", sans-serif;
+    color: #1a1a1a; font-size: 12px; line-height: 1.55; margin: 0;
+  }
+  .head { display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 3px solid #1F4E78; padding-bottom: 12px; margin-bottom: 6px; }
+  .head h1 { font-size: 26px; letter-spacing: 6px; color: #1F4E78; margin: 0 0 4px; }
+  .vendor { font-size: 11.5px; color: #333; }
+  .vendor b { font-size: 14px; color: #1a1a1a; }
+  .meta { text-align: right; font-size: 11.5px; color: #333; white-space: nowrap; }
+  .meta div { margin-bottom: 2px; }
+  .meta .no { font-size: 14px; font-weight: bold; color: #1F4E78; }
+  .to { margin: 14px 0 6px; font-size: 13px; }
+  .to b { font-size: 15px; }
+  h2 { font-size: 13px; color: #1F4E78; border-left: 4px solid #1F4E78;
+    padding-left: 8px; margin: 16px 0 8px; }
+  .proj { background: #f4f7fb; border: 1px solid #dce6f2; border-radius: 4px; padding: 10px 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  th { background: #1F4E78; color: #fff; font-weight: 600; font-size: 11.5px; padding: 7px 8px; text-align: left; }
+  td { border-bottom: 1px solid #e2e2e2; padding: 6px 8px; font-size: 11.5px; }
+  td.r, th.r { text-align: right; }
+  tr.sub td { background: #f4f7fb; font-weight: bold; }
+  tr.addon td { color: #555; }
+  .totals { margin-top: 10px; margin-left: auto; width: 55%; }
+  .totals td { border: none; padding: 4px 8px; }
+  .totals .grand td { background: #FFF2CC; font-weight: bold; font-size: 14px; border-top: 2px solid #1F4E78; }
+  .cols { display: flex; gap: 18px; }
+  .cols > div { flex: 1; }
+  ul { margin: 4px 0; padding-left: 18px; }
+  li { margin-bottom: 3px; }
+  .terms { font-size: 10.5px; color: #444; }
+  .sign { display: flex; gap: 40px; margin-top: 28px; }
+  .sign > div { flex: 1; border-top: 1px solid #888; padding-top: 6px; font-size: 11px; color: #555; }
+  .foot { text-align: center; color: #999; font-size: 10px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 8px; }
+  .stretch { color: #999; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+  <div class="head">
+    <div class="vendor">
+      <b>曾建斌</b>(個人接案)<br>
+      新北市永和區信義路 16 巷 8 號 2F<br>
+      電話:0927089418　Email:cbtzeng@gmail.com
+    </div>
+    <div class="meta">
+      <h1 style="text-align:right">報價單</h1>
+      <div class="no">Q-20260703-01</div>
+      <div>報價日期:2026/07/03</div>
+      <div>有效期限:2026/08/02</div>
+    </div>
+  </div>
+
+  <div class="to">報價對象:<b>峻晟金屬股份有限公司</b></div>
+
+  <h2>專案名稱</h2>
+  <div class="proj">
+    <b>送貨單列印與雲端管理系統(擴充案)</b><br>
+    <span style="font-size:11.5px; color:#444">
+    以貴公司現有 EPSON LQ-310 三聯送貨單列印工具為基礎,擴充為雲端可保存、可查詢、開單更快的送貨單系統:送貨單存進雲端資料庫、可查歷史與重印、品名規格 autocomplete 自動帶入單位與單價,並將系統部署上雲供多台裝置開單。
+    </span>
+  </div>
+
+  <h2>報價明細</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:34px">項次</th>
+        <th>項目 / 模組</th>
+        <th>說明</th>
+        <th class="r" style="width:70px">人天</th>
+        <th class="r" style="width:80px">金額(未稅)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Supabase 建置與前端串接</td><td>雲端資料庫、schema、前端連線設定</td><td class="r">1.0</td><td class="r">6,000</td></tr>
+      <tr><td>2</td><td>送貨單存檔 / 清單 / 查詢</td><td>存單、歷史清單、依單號/客戶/日期查詢與重印</td><td class="r">1.0</td><td class="r">6,000</td></tr>
+      <tr><td>3</td><td>品名主檔 + Excel 匯入</td><td>品名規格主檔,匯入現成清單</td><td class="r">0.5</td><td class="r">3,000</td></tr>
+      <tr><td>4</td><td>品名 autocomplete</td><td>開單即時建議,自動帶入單位/單價</td><td class="r">0.75</td><td class="r">4,500</td></tr>
+      <tr><td>5</td><td>部署上雲 + 本機列印連線</td><td>Vercel 部署、列印連線設定與實測</td><td class="r">0.5</td><td class="r">3,000</td></tr>
+      <tr class="sub"><td colspan="3">模組小計</td><td class="r">3.75</td><td class="r">22,500</td></tr>
+      <tr class="addon"><td>6</td><td>專案管理(PM)</td><td>10%</td><td class="r">—</td><td class="r">2,250</td></tr>
+      <tr class="addon"><td>7</td><td>測試 QA</td><td>12%</td><td class="r">—</td><td class="r">2,700</td></tr>
+      <tr class="addon"><td>8</td><td>風險緩衝</td><td>15%(列印連線實測不確定性)</td><td class="r">—</td><td class="r">3,375</td></tr>
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>未稅小計</td><td class="r">NT$ 30,825</td></tr>
+    <tr><td>營業稅 5%</td><td class="r">NT$ 1,541</td></tr>
+    <tr class="grand"><td>含稅總計</td><td class="r">NT$ 32,366</td></tr>
+  </table>
+
+  <h2>交付時程</h2>
+  <div>預估交付工期 <b>約 1.5–2 週</b>(開發 3.75 人天,含測試與驗收往返)。里程碑:</div>
+  <ul>
+    <li>M1–M2 雲端資料庫與送貨單存查(第 1 週)</li>
+    <li>M3–M4 品名匯入與 autocomplete(第 1–2 週)</li>
+    <li>M5 部署上線 + 列印實測 + 驗收(第 2 週)</li>
+  </ul>
+
+  <div class="cols">
+    <div>
+      <h2>付款條件</h2>
+      <ul><li>簽約款 50%</li><li>驗收款 50%</li></ul>
+      <h2>保固與維運</h2>
+      <ul class="terms">
+        <li>驗收通過後 3 個月內,就報價範圍內之瑕疵免費修正。</li>
+        <li>保固不含需求變更、新增功能、第三方環境異動所致問題。</li>
+        <li>保固期滿後之維護、更新另行報價。</li>
+      </ul>
+    </div>
+    <div>
+      <h2>本報價不含(第三方費用)</h2>
+      <ul class="terms">
+        <li>Supabase、Vercel 等雲端服務之付費方案費用(如有,由客戶負擔)。</li>
+        <li>硬體、印表機耗材、既有 LQ-310 以外之裝置。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>報價假設與條款</h2>
+  <ul class="terms">
+    <li>本報價基於既有 MVP(送貨單表單、ESC/P2 列印管線、資料模型)已完成之基礎進行擴充。</li>
+    <li>客戶於約定時間提供結構化之 Excel/CSV 品名規格清單及必要決策。</li>
+    <li>使用規模為單一公司、少量並行使用者,不含使用者登入(以 Supabase RLS 管控)。</li>
+    <li>範圍以本報價明細所列為準;範圍外之新增或變更需求,另行評估工時並追加報價。</li>
+    <li>本報價金額以新台幣計算,含 5% 營業稅;逾有效期請洽本人重新確認。</li>
+  </ul>
+
+  <div class="sign">
+    <div>客戶簽章 / 日期</div>
+    <div>報價方簽章:曾建斌　/ 日期</div>
+  </div>
+
+  <div class="foot">曾建斌　0927089418　cbtzeng@gmail.com　｜　報價單 Q-20260703-01　｜　本文件含 5% 營業稅</div>
+
+</body>
+</html>

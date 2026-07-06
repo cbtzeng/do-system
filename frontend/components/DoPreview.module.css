@@ -1,45 +1,136 @@
-.preview {
-  border: 2px solid #333;
-  padding: 16px;
-  background: #fffef7;
+/* 量測容器:讓整張單以 cqw 等比縮放,永遠完整顯示。 */
+.previewport {
+  container-type: inline-size;
   width: 100%;
-  max-width: 520px;
-  font-size: 13px;
-  color: #222;
-  /* 模擬點陣印表機的列印質感 */
-  font-family: "Courier New", monospace;
 }
 
-.title {
+/* 整張單:中一刀(21.59 × 13.97 cm)橫式。
+   字級用 cqw → 整張隨面板寬度等比縮放,內容永不被裁切。 */
+.sheet {
+  --ink: #1d2a23;
+  --line: #56655c;
+  width: 100%;
+  aspect-ratio: 2159 / 1397;
+  font-size: 1.8cqw;
+  background: #fffefb;
+  border: 0.12em solid var(--ink);
+  border-radius: 0.2em;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-family: var(--font-geist-mono), "Courier New", monospace;
+  display: flex;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.7em 0.9em;
+  min-width: 0;
+}
+
+/* 抬頭 */
+.top {
+  display: grid;
+  grid-template-columns: 1.05fr 1.25fr 0.9fr;
+  gap: 0.4em;
+  align-items: start;
+  margin-bottom: 0.5em;
+}
+
+.custInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+}
+
+.custRow {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.25em;
+}
+
+.custLabel {
+  white-space: nowrap;
+}
+
+.custValue {
+  flex: 1;
+  border-bottom: 1px dotted #9aa9a0;
+  min-width: 0;
+  padding: 0 0.2em;
+  word-break: break-all;
+}
+
+.titleBlock {
   text-align: center;
-  font-size: 18px;
+  padding-top: 0.1em;
+  white-space: nowrap;
+}
+
+.company {
+  font-size: 1.25em;
   font-weight: 700;
-  letter-spacing: 4px;
-  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3em;
 }
 
-.subtitle {
-  text-align: center;
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 12px;
+.docTitle {
+  font-size: 1.9em;
+  font-weight: 700;
+  letter-spacing: 0.2em;
 }
 
+.metaBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+  align-items: flex-start;
+  padding-top: 0.4em;
+  font-size: 1.05em;
+  white-space: nowrap;
+}
+
+.metaNoVal {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.metaDate {
+  letter-spacing: 0.1em;
+}
+
+/* 品項表 */
 .table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 8px;
+  table-layout: fixed;
 }
 
 .table th,
 .table td {
-  border: 1px solid #555;
-  padding: 4px 6px;
+  border: 1px solid var(--line);
+  padding: 0.2em 0.4em;
+  vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table th {
-  background: #efece0;
-  font-weight: 600;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: #f3f6f3;
+  white-space: nowrap;
+}
+
+.padRow td {
+  height: 1.35em;
+}
+
+.center {
+  text-align: center;
 }
 
 .num {
@@ -47,18 +138,115 @@
   font-variant-numeric: tabular-nums;
 }
 
-.empty {
-  color: #aaa;
+.cSeq {
+  width: 9%;
+  text-align: center;
+}
+.cName {
+  width: auto;
+}
+.cUnit {
+  width: 9%;
+}
+.cNum {
+  width: 13%;
+}
+.cAmt {
+  width: 16%;
 }
 
-.total {
-  font-weight: 700;
-}
-
-.foot {
+/* 備註 + 金額 */
+.bottom {
   display: flex;
-  justify-content: space-between;
-  margin-top: 16px;
-  font-size: 12px;
-  color: #444;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-top: none;
+}
+
+.remark {
+  flex: 1;
+  display: flex;
+  gap: 0.4em;
+  padding: 0.3em 0.4em;
+  border-right: 1px solid var(--line);
+  min-width: 0;
+}
+
+.remarkLabel {
+  white-space: nowrap;
+}
+
+.remarkValue {
+  flex: 1;
+  word-break: break-all;
+}
+
+.totals {
+  border-collapse: collapse;
+  width: 41%;
+}
+
+.totals td {
+  border: 1px solid var(--line);
+  border-right: none;
+  border-bottom: none;
+  padding: 0.2em 0.4em;
+}
+
+.totals tr:first-child td {
+  border-top: none;
+}
+
+.totLabel {
+  white-space: nowrap;
+  letter-spacing: 0.1em;
+  background: #f3f6f3;
+  width: 46%;
+}
+
+.grand {
+  font-weight: 700;
+  color: var(--brand-active);
+}
+
+/* 簽核 */
+.signs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em 1em;
+  margin-top: auto;
+  padding-top: 0.7em;
+}
+
+.sign {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.signLine {
+  display: inline-block;
+  width: 4.5em;
+  border-bottom: 1px solid var(--ink);
+  margin-left: 0.2em;
+}
+
+/* 右側三聯直書條(第一→第三,由左至右) */
+.copies {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.6em 0.3em;
+  border-left: 1px solid var(--ink);
+  letter-spacing: 0.15em;
+  font-size: 0.92em;
+  color: var(--text-muted);
+  background: #faf9f4;
+}
+
+.copies span {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
 }

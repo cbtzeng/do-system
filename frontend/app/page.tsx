@@ -19,6 +19,7 @@ export default function Home() {
   return (
     <div className={styles.page}>
       <h1 className={styles.heading}>送貨單編輯</h1>
+      <p className={styles.subhead}>填寫 → 預覽 → 從 LQ-310 列印</p>
 
       <div className={styles.layout}>
         <section className={styles.section}>

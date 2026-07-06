@@ -1,0 +1,17 @@
+{
+  "currency": "TWD",
+  "tax_rate": 0.05,
+  "modules": [
+    {"name": "M1 Supabase建置與前端串接", "complexity": "中", "man_days": 1.0, "role": "工程師", "day_rate": 6000},
+    {"name": "M2 送貨單存檔/清單/查詢", "complexity": "中", "man_days": 1.0, "role": "工程師", "day_rate": 6000},
+    {"name": "M3 品名主檔+Excel匯入", "complexity": "低-中", "man_days": 0.5, "role": "工程師", "day_rate": 6000},
+    {"name": "M4 品名autocomplete", "complexity": "中", "man_days": 0.75, "role": "工程師", "day_rate": 6000},
+    {"name": "M5 Vercel部署+agent連線", "complexity": "中", "man_days": 0.5, "role": "工程師", "day_rate": 6000}
+  ],
+  "addons": [
+    {"name": "專案管理(PM)", "rate": 0.10},
+    {"name": "測試QA", "rate": 0.12},
+    {"name": "風險緩衝", "rate": 0.15}
+  ],
+  "staffing": {"people": 1, "parallel_factor": 1.0}
+}
