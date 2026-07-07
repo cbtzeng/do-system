@@ -61,9 +61,9 @@ export function emptyHeader(): DoHeader {
   };
 }
 
-/** 空白 metal 品項列。 */
+/** 空白 metal 品項列(單價內部用、預設 0,不列印在出貨單)。 */
 export function emptyMetalLine(): MetalLine {
-  return { name: "", material: "", size: "", sheets: 0, weight: 0 };
+  return { name: "", material: "", size: "", sheets: 0, weight: 0, price: 0 };
 }
 
 /** 空白 standard 品項列。 */

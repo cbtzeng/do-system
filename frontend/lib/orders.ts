@@ -339,14 +339,17 @@ export function mapRowToForm(row: DeliveryOrderRow): DoForm {
   }
 
   const lines: MetalFormLine[] = rawLines.map((l) => {
-    const line = l as Partial<MetalLine>;
-    return {
+    const line = l as Partial<MetalLine> & { price?: number };
+    const out: MetalFormLine = {
       name: line.name ?? "",
       material: line.material ?? "",
       size: line.size ?? "",
       sheets: line.sheets ?? 0,
       weight: line.weight ?? 0,
     };
+    // 單價(內部用):僅在 DB 有值時帶回,維持與原資料一致的 round-trip。
+    if (typeof line.price === "number") out.price = line.price;
+    return out;
   });
   const form: MetalDoForm = {
     template: "metal",
