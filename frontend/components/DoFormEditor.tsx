@@ -17,6 +17,15 @@ import {
   emptyStandardLine,
   switchTemplate,
 } from "./doForm";
+import AutocompleteInput from "./AutocompleteInput";
+import {
+  suggestCustomers,
+  suggestItems,
+  suggestItemsWithDetails,
+  suggestField,
+  type CustomerSuggestion,
+  type ItemNameSuggestion,
+} from "../lib/suggestions";
 import styles from "./DoFormEditor.module.css";
 
 interface DoFormEditorProps {
@@ -56,6 +65,19 @@ export default function DoFormEditor({ form, onChange }: DoFormEditorProps) {
     onChange({ ...form, header: { ...form.header, ...patch } });
   }
 
+  const isStandard = form.template === "standard";
+
+  // 選定客戶 → 自動帶出住址 / 電話(standard 另帶統編)。
+  function onPickCustomer(c: CustomerSuggestion) {
+    const patch: Partial<DoHeader> = {
+      customerName: c.customerName,
+      address: c.address,
+      phone: c.phone,
+    };
+    if (isStandard) patch.taxId = c.taxId;
+    updateHeader(patch);
+  }
+
   return (
     <div className={styles.editor}>
       {/* 版型切換 */}
@@ -85,13 +107,25 @@ export default function DoFormEditor({ form, onChange }: DoFormEditorProps) {
         {(form.template === "metal" ? METAL_HEADER : STANDARD_HEADER).map((f) => (
           <label key={f.key} className={styles.field}>
             <span className={styles.fieldLabel}>{f.label}</span>
-            <input
-              className={styles.input}
-              type="text"
-              value={form.header[f.key]}
-              placeholder={f.placeholder}
-              onChange={(e) => updateHeader({ [f.key]: e.target.value })}
-            />
+            {f.key === "customerName" ? (
+              <AutocompleteInput<CustomerSuggestion>
+                value={form.header.customerName}
+                onChange={(v) => updateHeader({ customerName: v })}
+                fetchSuggestions={(q) => suggestCustomers(q)}
+                getLabel={(c) => c.customerName}
+                onPick={onPickCustomer}
+                placeholder={f.placeholder}
+                aria-label={f.label}
+              />
+            ) : (
+              <input
+                className={styles.input}
+                type="text"
+                value={form.header[f.key]}
+                placeholder={f.placeholder}
+                onChange={(e) => updateHeader({ [f.key]: e.target.value })}
+              />
+            )}
           </label>
         ))}
       </div>
@@ -148,30 +182,30 @@ function MetalEditor({
             <tr key={i}>
               <td className={styles.seq}>{i + 1}</td>
               <td>
-                <input
-                  className={styles.input}
-                  type="text"
+                <AutocompleteInput<string>
                   value={line.name}
+                  onChange={(v) => updateLine(i, { name: v })}
+                  fetchSuggestions={(q) => suggestItems("name", q)}
                   placeholder="SRS60401-M1"
-                  onChange={(e) => updateLine(i, { name: e.target.value })}
+                  aria-label="品名"
                 />
               </td>
               <td>
-                <input
-                  className={styles.input}
-                  type="text"
+                <AutocompleteInput<string>
                   value={line.material}
+                  onChange={(v) => updateLine(i, { material: v })}
+                  fetchSuggestions={(q) => suggestItems("material", q)}
                   placeholder="SPHC PO"
-                  onChange={(e) => updateLine(i, { material: e.target.value })}
+                  aria-label="材質"
                 />
               </td>
               <td>
-                <input
-                  className={styles.input}
-                  type="text"
+                <AutocompleteInput<string>
                   value={line.size}
+                  onChange={(v) => updateLine(i, { size: v })}
+                  fetchSuggestions={(q) => suggestItems("size", q)}
                   placeholder="1.2x1040x1220"
-                  onChange={(e) => updateLine(i, { size: e.target.value })}
+                  aria-label="尺寸"
                 />
               </td>
               <td>
@@ -228,22 +262,22 @@ function MetalEditor({
         </label>
         <label className={styles.field}>
           <span className={styles.fieldLabel}>承運車行</span>
-          <input
-            className={styles.input}
-            type="text"
+          <AutocompleteInput<string>
             value={header.carrier}
+            onChange={(v) => updateHeader({ carrier: v })}
+            fetchSuggestions={(q) => suggestField("carrier", q)}
             placeholder="承運車行"
-            onChange={(e) => updateHeader({ carrier: e.target.value })}
+            aria-label="承運車行"
           />
         </label>
         <label className={styles.field}>
           <span className={styles.fieldLabel}>車號</span>
-          <input
-            className={styles.input}
-            type="text"
+          <AutocompleteInput<string>
             value={header.vehicleNo}
+            onChange={(v) => updateHeader({ vehicleNo: v })}
+            fetchSuggestions={(q) => suggestField("vehicle_no", q)}
             placeholder="車號"
-            onChange={(e) => updateHeader({ vehicleNo: e.target.value })}
+            aria-label="車號"
           />
         </label>
       </div>
@@ -297,12 +331,20 @@ function StandardEditor({
             <tr key={i}>
               <td className={styles.seq}>{i + 1}</td>
               <td>
-                <input
-                  className={styles.input}
-                  type="text"
+                <AutocompleteInput<ItemNameSuggestion>
                   value={line.name}
+                  onChange={(v) => updateLine(i, { name: v })}
+                  fetchSuggestions={(q) => suggestItemsWithDetails(q)}
+                  getLabel={(it) => it.name}
+                  onPick={(it) => {
+                    // 選定品名 → 若有單位/單價則一併帶入。
+                    const patch: Partial<StandardLine> = { name: it.name };
+                    if (it.unit) patch.unit = it.unit;
+                    if (it.price !== null) patch.price = it.price;
+                    updateLine(i, patch);
+                  }}
                   placeholder="品名 / 規格"
-                  onChange={(e) => updateLine(i, { name: e.target.value })}
+                  aria-label="品名 / 規格"
                 />
               </td>
               <td>
