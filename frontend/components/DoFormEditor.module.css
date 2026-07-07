@@ -1,96 +1,265 @@
 .editor {
   display: flex;
   flex-direction: column;
+  gap: 18px;
+}
+
+/* 版型切換 */
+.templateSwitch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  align-self: flex-start;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  background: var(--surface);
+  color: var(--brand-active);
+  box-shadow: var(--shadow-sm);
+}
+
+/* metal 版底部欄位 */
+.metalFoot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 14px;
+.metalFoot > label:first-child {
+  grid-column: 1 / -1;
 }
 
-.table th,
-.table td {
-  border: 1px solid #ccc;
-  padding: 6px 8px;
-  text-align: left;
+@media (max-width: 560px) {
+  .metalFoot {
+    grid-template-columns: 1fr;
+  }
 }
 
-.table th {
-  background: #f2f2f2;
+/* 抬頭欄位網格 */
+.headerGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
   font-weight: 600;
+  color: var(--text-muted);
 }
 
 .input {
   width: 100%;
   box-sizing: border-box;
-  padding: 4px 6px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* 品項表 */
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.table th,
+.table td {
+  padding: 8px 9px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.table thead th {
+  background: var(--sage-50);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.table tbody tr:hover td {
+  background: var(--sage-50);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.seq {
+  text-align: center;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .numInput {
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .subtotal {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 .delBtn {
-  border: 1px solid #d33;
-  background: #fff;
-  color: #d33;
-  border-radius: 4px;
-  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
   cursor: pointer;
   font-size: 13px;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .delBtn:hover:not(:disabled) {
-  background: #fdeaea;
+  background: var(--danger-soft);
+  border-color: var(--danger);
 }
 
 .delBtn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .addBtn {
   align-self: flex-start;
-  border: 1px solid #2a7;
-  background: #fff;
-  color: #2a7;
-  border-radius: 4px;
-  padding: 6px 14px;
+  border: 1px dashed var(--border-strong);
+  background: var(--sage-50);
+  color: var(--brand);
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 550;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .addBtn:hover {
-  background: #eafaf2;
+  background: var(--sage-100);
+  border-color: var(--brand);
 }
 
-.totalRow td {
-  background: #fafafa;
-  font-weight: 600;
+/* 備註 + 金額區 */
+.footGrid {
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 0.7fr);
+  gap: 16px;
+  align-items: start;
 }
 
+@media (max-width: 560px) {
+  .headerGrid,
+  .footGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.taxInput {
+  max-width: 120px;
+}
+
+.grandRow {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--brand-active);
+}
+
+.grandRow .subtotal {
+  color: var(--brand-active);
+}
+
+/* 欄寬 */
+.colSeq {
+  width: 48px;
+}
 .colName {
-  width: 30%;
+  width: auto;
 }
-.colSize {
-  width: 16%;
+.colUnit {
+  width: 64px;
+}
+.colMid {
+  width: 18%;
 }
 .colNum {
-  width: 14%;
+  width: 13%;
 }
 .colSub {
-  width: 16%;
+  width: 14%;
 }
 .colAct {
-  width: 80px;
+  width: 64px;
 }

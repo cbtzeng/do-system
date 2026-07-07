@@ -3,22 +3,35 @@
 // 位元組佈局 (byte layout)
 // -----------------------------------------------------------------------------
 // 1. ESC @            0x1B 0x40          初始化印表機 (reset to power-on defaults)
-// 2. ESC 3 n          0x1B 0x33 n        設定行距為 n/180 吋。
+// 2. ESC C n          0x1B 0x43 n        設定頁長為 n 行。連續報表紙(中一刀)
+//                                        頁高 5.5" = 6 LPI × 5.5 = 33 行。
+//                                        緊接在 ESC @ 後 (此時仍是預設 1/6" 行距)
+//                                        下達,頁長即鎖定為 5.5"。少了這行,ESC @
+//                                        會把頁長還原成印表機預設 (常為 11"/12"),
+//                                        FF 就會過送、吃掉後面的空白三聯單。
+// 3. ESC 3 n          0x1B 0x33 n        設定行距為 n/180 吋。
 //                                        我們以 form.offsetY 當作每行起始前的
 //                                        垂直微調行距 (預設值即可上下移動整張單)。
+//                                        頁長已由 ESC C 鎖定,之後改行距不影響。
 // 對每一列 (line):
-//   3. ESC $ nL nH    0x1B 0x24 nL nH    絕對水平位置,單位 1/60 吋,
+//   4. ESC $ nL nH    0x1B 0x24 nL nH    絕對水平位置,單位 1/60 吋,
 //                                        位置 = nL + nH*256。由 form.offsetX 驅動。
-//   4. <name + subtotal 的 ASCII bytes>  例: "Widget    1200"
-//   5. LF             0x0A               換行 (line feed)
+//   5. <name + subtotal 的 ASCII bytes>  例: "Widget    1200"
+//   6. LF             0x0A               換行 (line feed)
 // 結尾:
-//   6. FF             0x0C               換頁 (form feed),送出整張單。
+//   7. FF             0x0C               換頁 (form feed),送出整張單。
 // -----------------------------------------------------------------------------
 // 第一版僅支援 ASCII / 數字 (中文 code page 之後再處理)。
+//
+// 註:此文字 ESC/P 路徑是為 standard(公版 K,含金額)版設計。
+// metal(峻晟金屬)版走圖形列印(/print-image + html-to-image),不經此函式。
 
-import type { DoForm } from "./contract";
+import type { StandardDoForm } from "./contract";
 
 const ESC = 0x1b;
+
+/** 連續報表紙(中一刀)頁長:5.5" @ 6 LPI = 33 行。ESC C 用。 */
+const PAGE_LENGTH_LINES = 33;
 
 /** 將 ASCII 字串轉為 byte 陣列 (非 ASCII 字元以 '?' 取代)。 */
 function asciiBytes(s: string): number[] {
@@ -42,13 +55,17 @@ function formatLine(name: string, qty: number, price: number): string {
  * 由表單建立 ESC/P2 位元組。
  * @see 檔頭的 byte layout 註解。
  */
-export function buildEscp(form: DoForm): Uint8Array {
+export function buildEscp(form: StandardDoForm): Uint8Array {
   const bytes: number[] = [];
 
   // 1. ESC @ — 初始化
   bytes.push(ESC, 0x40);
 
-  // 2. ESC 3 n — 行距 n/180 吋,以 offsetY 驅動垂直位置 (clamp 0..255)
+  // 2. ESC C n — 頁長 33 行 (5.5")。趁 ESC @ 後仍是 1/6" 行距時鎖定,
+  //    讓 FF 只跳一張連續三聯單,不會過送。
+  bytes.push(ESC, 0x43, PAGE_LENGTH_LINES);
+
+  // 3. ESC 3 n — 行距 n/180 吋,以 offsetY 驅動垂直位置 (clamp 0..255)
   const n = Math.max(0, Math.min(255, Math.round(form.offsetY)));
   bytes.push(ESC, 0x33, n);
 
@@ -58,15 +75,15 @@ export function buildEscp(form: DoForm): Uint8Array {
   const nH = (x >> 8) & 0xff;
 
   for (const line of form.lines) {
-    // 3. ESC $ nL nH — 絕對水平位置
+    // 4. ESC $ nL nH — 絕對水平位置
     bytes.push(ESC, 0x24, nL, nH);
-    // 4. 列內容
+    // 5. 列內容
     bytes.push(...asciiBytes(formatLine(line.name, line.qty, line.price)));
-    // 5. LF
+    // 6. LF
     bytes.push(0x0a);
   }
 
-  // 6. FF — 換頁
+  // 7. FF — 換頁
   bytes.push(0x0c);
 
   return Uint8Array.from(bytes);
