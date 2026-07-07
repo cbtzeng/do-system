@@ -174,6 +174,12 @@ function MetalEditor({
             <th className={styles.colMid}>尺寸</th>
             <th className={styles.colNum}>片數</th>
             <th className={styles.colNum}>重量</th>
+            <th className={styles.colNum}>
+              單價
+              <span className={styles.internalHint} title="內部用,不列印在出貨單">
+                內部
+              </span>
+            </th>
             <th className={styles.colAct}></th>
           </tr>
         </thead>
@@ -229,6 +235,18 @@ function MetalEditor({
                 />
               </td>
               <td>
+                <input
+                  className={`${styles.input} ${styles.numInput}`}
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={line.price ?? 0}
+                  aria-label="單價(內部用,不列印)"
+                  title="內部用、不列印在出貨單;供對帳單計算金額"
+                  onChange={(e) => updateLine(i, { price: parseNumber(e.target.value) })}
+                />
+              </td>
+              <td>
                 <button
                   type="button"
                   className={styles.delBtn}
@@ -247,6 +265,10 @@ function MetalEditor({
       <button type="button" className={styles.addBtn} onClick={addLine}>
         + 新增一列
       </button>
+
+      <p className={styles.internalNote}>
+        單價為內部用,不列印在出貨單,僅供【對帳單】計算金額(重量 × 單價)。
+      </p>
 
       {/* 備註 / 承運車行 / 車號 */}
       <div className={styles.metalFoot}>

@@ -21,13 +21,18 @@ export interface DoHeader {
   invoiceNo: string; // 發票號碼
 }
 
-/** metal 版品項單列(峻晟金屬:無金額)。 */
+/** metal 版品項單列(峻晟金屬:出貨單不印金額)。 */
 export interface MetalLine {
   name: string; // 品名
   material: string; // 材質
   size: string; // 尺寸
   sheets: number; // 片數
   weight: number; // 重量
+  /**
+   * 單價(內部用)。存進 DB(lines jsonb),供【對帳單】計算金額 = 重量 × 單價,
+   * 但**不列印在出貨單**上。選填;舊資料可能沒有此欄。
+   */
+  price?: number;
 }
 
 /** standard 版品項單列(公版 K:含金額)。 */
