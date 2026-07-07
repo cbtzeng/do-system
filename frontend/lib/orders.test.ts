@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { MetalDoForm, StandardDoForm } from "./contract";
-import { mapFormToRow, rocDateToIso } from "./orders";
+import type { DeliveryOrderRow } from "./db-types";
+import {
+  isoToRocDate,
+  mapFormToRow,
+  mapRowToForm,
+  rocDateToIso,
+} from "./orders";
 
 const metalForm: MetalDoForm = {
   template: "metal",
@@ -116,5 +122,66 @@ describe("mapFormToRow — standard", () => {
     expect(row.remark).toBeNull();
     expect(row.carrier).toBeNull();
     expect(row.vehicle_no).toBeNull();
+  });
+});
+
+describe("isoToRocDate", () => {
+  it("converts ISO to ROC free-text", () => {
+    expect(isoToRocDate("2026-06-22")).toBe("115 年 6 月 22 日");
+    expect(isoToRocDate("2025-12-01")).toBe("114 年 12 月 1 日");
+  });
+
+  it("returns empty string for null/unparseable", () => {
+    expect(isoToRocDate(null)).toBe("");
+    expect(isoToRocDate("")).toBe("");
+    expect(isoToRocDate("not-a-date")).toBe("");
+  });
+});
+
+/**
+ * mapRowToForm round-trip:mapFormToRow → 補上 DB 維護欄位 → mapRowToForm
+ * 應還原成等價的 DoForm(已去空白;日期以民國年字串還原)。
+ */
+function rowFromInsert(
+  form: MetalDoForm | StandardDoForm,
+): DeliveryOrderRow {
+  const insert = mapFormToRow(form, "row-1");
+  return {
+    id: "row-1",
+    ...insert,
+    lines: insert.lines,
+    status: "draft",
+    print_count: 0,
+    first_printed_at: null,
+    last_printed_at: null,
+    created_at: "2026-07-07T00:00:00Z",
+    updated_at: "2026-07-07T00:00:00Z",
+  } as DeliveryOrderRow;
+}
+
+describe("mapRowToForm — round-trip", () => {
+  it("reconstructs a metal form", () => {
+    const back = mapRowToForm(rowFromInsert(metalForm));
+    expect(back).toEqual({
+      ...metalForm,
+      header: { ...metalForm.header, customerName: "峻晟金屬" }, // trimmed on the way in
+    });
+  });
+
+  it("reconstructs a standard form incl. taxAmount / tax_id / invoice_no", () => {
+    const back = mapRowToForm(rowFromInsert(standardForm));
+    expect(back).toEqual(standardForm);
+    if (back.template !== "standard") throw new Error("expected standard");
+    expect(back.taxAmount).toBe(20);
+    expect(back.header.taxId).toBe("12345678");
+  });
+
+  it("handles null date and empty lines gracefully", () => {
+    const row = rowFromInsert(metalForm);
+    row.order_date = null;
+    row.lines = [];
+    const back = mapRowToForm(row);
+    expect(back.header.date).toBe("");
+    expect(back.lines).toEqual([]);
   });
 });
