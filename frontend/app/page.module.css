@@ -34,6 +34,17 @@
   color: var(--text-muted);
 }
 
+.loadNote {
+  margin-top: -12px;
+  margin-left: 42px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--sage-50);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
 .layout {
   display: flex;
   flex-direction: column;

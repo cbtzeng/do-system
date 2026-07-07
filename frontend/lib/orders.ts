@@ -8,9 +8,16 @@
 //
 // 設計原則:mapFormToRow 不碰網路,方便單元測試;其餘函式才實際打 Supabase。
 
-import type { DoForm } from "./contract";
+import type {
+  DoForm,
+  MetalDoForm,
+  MetalLine as MetalFormLine,
+  StandardDoForm,
+  StandardLine as StandardFormLine,
+} from "./contract";
 import type {
   DeliveryOrderLine,
+  DeliveryOrderRow,
   MetalLine,
   StandardLine,
 } from "./db-types";
@@ -268,4 +275,139 @@ export async function upsertMasters(form: DoForm): Promise<void> {
       await supabase.from("items").insert({ ...patch, use_count: 1 });
     }
   }
+}
+
+/* ================================================================
+ * 歷史清單 / 查詢 / 重開編修重印(Issue #E)
+ * ================================================================ */
+
+/**
+ * 把 ISO 日期(YYYY-MM-DD)還原成畫面用的民國年字串「NNN 年 M 月 D 日」。
+ * rocDateToIso 的反函式;解析不出來就回空字串(對應 DoHeader.date 型別)。
+ */
+export function isoToRocDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return "";
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (!year || !month || !day) return "";
+  return `${year - 1911} 年 ${month} 月 ${day} 日`;
+}
+
+/**
+ * delivery_orders 的 row → DoForm(mapFormToRow 的反函式)。
+ * 依 template 重建 metal / standard 表單:抬頭、民國年日期字串、
+ * lines(由 jsonb 還原)、offset;standard 版另還原 taxAmount / 統編 / 發票號碼。
+ */
+export function mapRowToForm(row: DeliveryOrderRow): DoForm {
+  const header = {
+    customerName: row.customer_name ?? "",
+    address: row.address ?? "",
+    phone: row.phone ?? "",
+    orderNo: row.order_no ?? "",
+    date: isoToRocDate(row.order_date),
+    remark: row.remark ?? "",
+    carrier: row.carrier ?? "",
+    vehicleNo: row.vehicle_no ?? "",
+    taxId: row.tax_id ?? "",
+    invoiceNo: row.invoice_no ?? "",
+  };
+
+  const rawLines = Array.isArray(row.lines) ? row.lines : [];
+
+  if (row.template === "standard") {
+    const lines: StandardFormLine[] = rawLines.map((l) => {
+      const line = l as Partial<StandardLine>;
+      return {
+        name: line.name ?? "",
+        unit: line.unit ?? "",
+        qty: line.qty ?? 0,
+        price: line.price ?? 0,
+      };
+    });
+    const form: StandardDoForm = {
+      template: "standard",
+      header,
+      lines,
+      taxAmount: row.tax_amount ?? 0,
+      offsetX: row.offset_x ?? 0,
+      offsetY: row.offset_y ?? 0,
+    };
+    return form;
+  }
+
+  const lines: MetalFormLine[] = rawLines.map((l) => {
+    const line = l as Partial<MetalLine>;
+    return {
+      name: line.name ?? "",
+      material: line.material ?? "",
+      size: line.size ?? "",
+      sheets: line.sheets ?? 0,
+      weight: line.weight ?? 0,
+    };
+  });
+  const form: MetalDoForm = {
+    template: "metal",
+    header,
+    lines,
+    offsetX: row.offset_x ?? 0,
+    offsetY: row.offset_y ?? 0,
+  };
+  return form;
+}
+
+/** listOrders 的查詢條件(皆選填)。 */
+export interface OrderFilters {
+  orderNo?: string;
+  customer?: string;
+  /** 起始日期(含),ISO YYYY-MM-DD。 */
+  from?: string;
+  /** 結束日期(含),ISO YYYY-MM-DD。 */
+  to?: string;
+}
+
+/**
+ * 查詢 delivery_orders 清單(供歷史頁)。
+ *   - orderNo / customer:ilike 模糊比對(order_no / customer_name)。
+ *   - from / to:order_date 區間(含端點)。
+ * 依 order_date 由新到舊、其次 created_at 由新到舊。
+ */
+export async function listOrders(
+  filters: OrderFilters = {},
+): Promise<DeliveryOrderRow[]> {
+  let query = getSupabase()
+    .from("delivery_orders")
+    .select("*")
+    .order("order_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  const orderNo = filters.orderNo?.trim();
+  if (orderNo) {
+    query = query.ilike("order_no", `%${orderNo.replace(/[%_]/g, "")}%`);
+  }
+
+  const customer = filters.customer?.trim();
+  if (customer) {
+    query = query.ilike("customer_name", `%${customer.replace(/[%_]/g, "")}%`);
+  }
+
+  if (filters.from) query = query.gte("order_date", filters.from);
+  if (filters.to) query = query.lte("order_date", filters.to);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as DeliveryOrderRow[];
+}
+
+/** 取單筆 delivery_orders(供重開編輯);找不到回 null。 */
+export async function getOrder(id: string): Promise<DeliveryOrderRow | null> {
+  const { data, error } = await getSupabase()
+    .from("delivery_orders")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as DeliveryOrderRow | null) ?? null;
 }
