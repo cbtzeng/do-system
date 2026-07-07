@@ -25,6 +25,9 @@ export default function AppNav() {
           <Link href="/items" className={styles.link}>
             品項主檔
           </Link>
+          <Link href="/statement" className={styles.link}>
+            對帳單
+          </Link>
           <Link href="/export" className={styles.link}>
             匯出
           </Link>
