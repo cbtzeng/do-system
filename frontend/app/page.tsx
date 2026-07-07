@@ -12,6 +12,10 @@ export default function Home() {
   // 整份 DoForm 保存在 page 狀態,列印控制項直接取用同一份 form。
   const [form, setForm] = useState<DoForm>(() => emptyDoForm());
 
+  // 目前這份單在 Supabase 的 id。null = 尚未存檔的新單;
+  // 存檔後回填,之後同一份單的列印皆走 update 同一 id。
+  const [orderId, setOrderId] = useState<string | null>(null);
+
   // 預覽根節點:圖形列印(#A)以 html-to-image 擷取此節點成 PNG。
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +41,8 @@ export default function Home() {
             form={form}
             previewRef={previewRef}
             onOffsetChange={handleOffsetChange}
+            orderId={orderId}
+            onOrderIdChange={setOrderId}
           />
         </section>
       </div>
