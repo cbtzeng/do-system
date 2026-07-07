@@ -3,6 +3,8 @@
 import { useEffect, useState, type RefObject } from "react";
 import type { DoForm } from "../lib/contract";
 import { getPrinters, printImage } from "../lib/printClient";
+import { recordPrint, saveOrder, upsertMasters } from "../lib/orders";
+import { isSupabaseConfigured } from "../lib/supabase";
 import styles from "./PrintControls.module.css";
 
 interface PrintControlsProps {
@@ -10,6 +12,10 @@ interface PrintControlsProps {
   /** 預覽根節點:圖形列印擷取此節點成 PNG。 */
   previewRef: RefObject<HTMLElement | null>;
   onOffsetChange?: (x: number, y: number) => void;
+  /** 目前這份單在 Supabase 的 id(null = 新單)。 */
+  orderId: string | null;
+  /** 存檔後回填 id 給 page,讓後續列印走 update。 */
+  onOrderIdChange: (id: string | null) => void;
 }
 
 type Status =
@@ -22,10 +28,14 @@ export default function PrintControls({
   form,
   previewRef,
   onOffsetChange,
+  orderId,
+  onOrderIdChange,
 }: PrintControlsProps) {
   const [printers, setPrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  // 存檔小提示(存檔成功 / 已更新 #<orderNo>);與列印狀態分開顯示。
+  const [saveNote, setSaveNote] = useState<string>("");
 
   // 載入印表機清單
   useEffect(() => {
@@ -70,10 +80,50 @@ export default function PrintControls({
       setStatus({ kind: "error", message: "找不到預覽內容,無法列印" });
       return;
     }
+
+    // 按列印 = 存檔 + 列印;先確認。
+    if (!window.confirm("要存檔並列印嗎?")) return;
+
     setStatus({ kind: "printing" });
+    setSaveNote("");
+
+    // 1) 先存檔(取得 / 沿用 id)+ 累積主檔。即使稍後列印失敗,存檔已完成。
+    //    未設定 Supabase 時跳過 DB,只做本機列印,並附註提示。
+    let savedId: string | null = orderId;
+    if (isSupabaseConfigured) {
+      try {
+        savedId = await saveOrder(form, orderId ?? undefined);
+        onOrderIdChange(savedId);
+        setSaveNote(
+          orderId
+            ? `已更新 #${form.header.orderNo || savedId}`
+            : "存檔成功",
+        );
+        // 主檔累積失敗不影響列印,僅記錄於 console。
+        upsertMasters(form).catch((err) => {
+          console.error("upsertMasters 失敗:", err);
+        });
+      } catch (err: unknown) {
+        setStatus({
+          kind: "error",
+          message: `存檔失敗: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        });
+        return;
+      }
+    } else {
+      setSaveNote("尚未設定 Supabase,僅本機列印(未存檔)");
+    }
+
+    // 2) 圖形列印:擷取預覽 DOM → PNG → 送本機 agent 轉 ESC/P。
+    setStatus({ kind: "printing" });
+    let printOk = false;
+    let jobId: string | undefined;
     try {
-      // WYSIWYG:擷取預覽 DOM → PNG → 送本機 agent 轉 ESC/P 圖形。
       const res = await printImage(selectedPrinter, node);
+      printOk = res.ok;
+      jobId = res.job_id;
       if (res.ok) {
         setStatus({
           kind: "success",
@@ -86,6 +136,13 @@ export default function PrintControls({
       setStatus({
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 3) 記錄本次列印結果(成功或失敗都記),不影響上方狀態。
+    if (isSupabaseConfigured && savedId) {
+      recordPrint(savedId, printOk, jobId).catch((err) => {
+        console.error("recordPrint 失敗:", err);
       });
     }
   }
@@ -146,6 +203,11 @@ export default function PrintControls({
         {status.kind === "printing" ? "列印中…" : "🖨  列印"}
       </button>
 
+      {saveNote && (
+        <p role="status" className={styles.status}>
+          {saveNote}
+        </p>
+      )}
       {status.kind === "success" && (
         <p role="status" className={`${styles.status} ${styles.success}`}>
           {status.message}
