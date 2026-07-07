@@ -1,45 +1,45 @@
-"""LQ-310 本機 print agent (Issue #3)。
+"""LQ-310 本機 print agent (Issue #3, 跨平台 #17)。
 
-職責:在 localhost:9100 開 HTTP server,收 base64 ESC/P2 bytes,
-經 macOS CUPS `lp -d <printer> -o raw` 送到 LQ-310。
+職責:在 localhost:9100 開 HTTP server,收 base64 ESC/P2 bytes(或 PNG),
+經跨平台後端 `printer_backend` 送到 LQ-310:
+  - macOS / Linux:CUPS `lp -d <printer> -o raw`
+  - Windows:      win32print RAW passthrough
 
 介面契約見 frontend/lib/contract.ts:
   POST /print        body {printer, data(base64)} -> {ok, job_id} | {ok:false, error}
   POST /print-image  body {printer, image(base64 PNG), width_dots?} -> {ok, job_id} | {ok:false, error}
   GET  /printers     -> {printers: [...]}
-  CORS: 允許 http://localhost:3000
+  CORS: 允許的 origin 由環境變數 ALLOWED_ORIGINS(逗號分隔)決定,
+        預設 http://localhost:3000。可加上部署後的 Vercel 網域。
 """
 
 import base64
 import binascii
-import re
-import subprocess
+import os
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+import printer_backend
 from escp_image import render_png_to_escp
 
 PORT = 9100
-ALLOWED_ORIGIN = "http://localhost:3000"
+
+
+def _allowed_origins() -> list:
+    """從環境變數 ALLOWED_ORIGINS(逗號分隔)讀允許的 origin。
+
+    預設 http://localhost:3000。部署後可設成
+    "http://localhost:3000,https://your-app.vercel.app"。
+    """
+    raw = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000")
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    return origins or ["http://localhost:3000"]
+
 
 app = Flask(__name__)
-# CORS:只允許前端 origin,涵蓋 OPTIONS preflight。
-CORS(app, origins=[ALLOWED_ORIGIN])
-
-
-def _parse_job_id(stdout: str) -> str:
-    """從 lp stdout 解析 request id。
-
-    `lp` 典型輸出: "request id is EPSON_LQ-310-42 (1 file(s))"
-    回傳 "EPSON_LQ-310-42";解析不到時回傳整段(去除前後空白)。
-    """
-    if not stdout:
-        return ""
-    m = re.search(r"request id is (\S+)", stdout)
-    if m:
-        return m.group(1)
-    return stdout.strip()
+# CORS:只允許設定的 origins,涵蓋 OPTIONS preflight。
+CORS(app, origins=_allowed_origins())
 
 
 @app.post("/print")
@@ -62,35 +62,21 @@ def print_route():
     except (binascii.Error, ValueError):
         return jsonify(ok=False, error="invalid base64 data"), 400
 
-    return _lp_raw(printer, raw)
+    return _send_raw(printer, raw)
 
 
-def _lp_raw(printer: str, raw: bytes):
-    """把 raw bytes 經 `lp -d <printer> -o raw` 送到印表機,回傳 Flask 回應。
-
-    以 list 傳參,絕不用 shell=True / 字串插值,printer 名稱安全。
-    """
-    cmd = ["lp", "-d", printer, "-o", "raw"]
+def _send_raw(printer: str, raw: bytes):
+    """把 raw bytes 經 printer_backend 送到印表機,回傳 Flask 回應。"""
     try:
-        result = subprocess.run(
-            cmd,
-            input=raw,
-            capture_output=True,
-        )
-    except FileNotFoundError:
-        return jsonify(ok=False, error="lp command not found"), 500
-
-    if result.returncode != 0:
-        err = (result.stderr or b"").decode("utf-8", "replace").strip()
-        return jsonify(ok=False, error=err or "lp failed"), 500
-
-    stdout = (result.stdout or b"").decode("utf-8", "replace")
-    return jsonify(ok=True, job_id=_parse_job_id(stdout))
+        job_id = printer_backend.send_raw(printer, raw)
+    except printer_backend.PrinterError as exc:
+        return jsonify(ok=False, error=str(exc)), 500
+    return jsonify(ok=True, job_id=job_id)
 
 
 @app.post("/print-image")
 def print_image_route():
-    """圖形列印(WYSIWYG):收 base64 PNG → escp_image 轉 ESC/P 點陣 → lp -o raw。"""
+    """圖形列印(WYSIWYG):收 base64 PNG → escp_image 轉 ESC/P 點陣 → send_raw。"""
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return jsonify(ok=False, error="invalid JSON body"), 400
@@ -128,34 +114,16 @@ def print_image_route():
     except Exception as exc:  # noqa: BLE001 — 回報給前端,勿讓 agent 掛掉
         return jsonify(ok=False, error=f"image render failed: {exc}"), 400
 
-    return _lp_raw(printer, raw)
-
-
-def _parse_printers(stdout: str) -> list:
-    """從 `lpstat -p` 輸出解析印表機名稱。
-
-    典型行: "printer EPSON_LQ-310 is idle.  enabled since ..."
-    """
-    printers = []
-    for line in stdout.splitlines():
-        m = re.match(r"printer (\S+)", line)
-        if m:
-            printers.append(m.group(1))
-    return printers
+    return _send_raw(printer, raw)
 
 
 @app.get("/printers")
 def printers_route():
     try:
-        result = subprocess.run(
-            ["lpstat", "-p"],
-            capture_output=True,
-        )
-    except FileNotFoundError:
+        printers = printer_backend.list_printers()
+    except printer_backend.PrinterError:
         return jsonify(printers=[]), 500
-
-    stdout = (result.stdout or b"").decode("utf-8", "replace")
-    return jsonify(printers=_parse_printers(stdout))
+    return jsonify(printers=printers)
 
 
 if __name__ == "__main__":
