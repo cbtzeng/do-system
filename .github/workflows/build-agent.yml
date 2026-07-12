@@ -1,0 +1,48 @@
+name: build-windows-agent
+
+# 在雲端的 Windows runner 用 PyInstaller 打包 LQ-310 print agent 成單一 exe。
+# 產物以 Artifact 上傳,可直接下載,不需自備 Windows 機器。
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - "print-agent/**"
+      - ".github/workflows/build-agent.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: print-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Build exe
+        run: >-
+          pyinstaller --onefile --name do-print-agent
+          --hidden-import win32print
+          --hidden-import win32timezone
+          --hidden-import pywintypes
+          app.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: do-print-agent-windows
+          path: print-agent/dist/do-print-agent.exe
+          if-no-files-found: error

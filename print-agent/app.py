@@ -25,16 +25,27 @@ from escp_image import render_png_to_escp
 
 PORT = 9100
 
+# 內建允許來源:本機開發 + 已部署的 Vercel 網站。
+# 這樣打包成 exe 後在客戶端「零設定」即可讓線上網站呼叫本機列印。
+DEFAULT_ORIGINS = [
+    "http://localhost:3000",
+    "https://do-system-theta.vercel.app",
+]
+
 
 def _allowed_origins() -> list:
-    """從環境變數 ALLOWED_ORIGINS(逗號分隔)讀允許的 origin。
+    """允許的 CORS origin = 內建預設 + 環境變數 ALLOWED_ORIGINS(逗號分隔)。
 
-    預設 http://localhost:3000。部署後可設成
-    "http://localhost:3000,https://your-app.vercel.app"。
+    預設已含 localhost + 部署的 Vercel 網域(打包 exe 零設定即通)。
+    若換網域或要加更多來源,設 ALLOWED_ORIGINS 即可(會併入,不會蓋掉預設)。
     """
-    raw = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000")
-    origins = [o.strip() for o in raw.split(",") if o.strip()]
-    return origins or ["http://localhost:3000"]
+    origins = list(DEFAULT_ORIGINS)
+    raw = os.environ.get("ALLOWED_ORIGINS", "")
+    for o in raw.split(","):
+        o = o.strip()
+        if o and o not in origins:
+            origins.append(o)
+    return origins
 
 
 app = Flask(__name__)

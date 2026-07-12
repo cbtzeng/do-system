@@ -239,21 +239,27 @@ def test_cors_preflight_options(client):
 
 
 def test_allowed_origins_default():
+    """無 env 時 = 內建預設(localhost + 部署的 Vercel 網域)。"""
     with patch.dict("os.environ", {}, clear=False):
         import os
         os.environ.pop("ALLOWED_ORIGINS", None)
-        assert app_module._allowed_origins() == ["http://localhost:3000"]
+        assert app_module._allowed_origins() == app_module.DEFAULT_ORIGINS
 
 
 def test_allowed_origins_from_env():
+    """env 會併入內建預設,不覆蓋;重複來源去重。"""
     with patch.dict(
         "os.environ",
-        {"ALLOWED_ORIGINS": "http://localhost:3000, https://foo.vercel.app"},
+        {"ALLOWED_ORIGINS": "http://localhost:3000, https://extra.example.com"},
     ):
-        assert app_module._allowed_origins() == [
-            "http://localhost:3000",
-            "https://foo.vercel.app",
-        ]
+        result = app_module._allowed_origins()
+        # 內建預設全在
+        for o in app_module.DEFAULT_ORIGINS:
+            assert o in result
+        # 新來源被加入
+        assert "https://extra.example.com" in result
+        # localhost 未重複
+        assert result.count("http://localhost:3000") == 1
 
 
 # ==========================================================================

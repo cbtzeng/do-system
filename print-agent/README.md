@@ -16,8 +16,10 @@ USB 連接的 **EPSON LQ-310**(24 針點陣印表機)。
 | POST | `/print-image` | `{printer, image(base64 PNG), width_dots?}` | `{ok, job_id}` / `{ok:false, error}` |
 | GET | `/printers` | — | `{printers: [...]}` |
 
-CORS 允許的 origin 由環境變數 **`ALLOWED_ORIGINS`**(逗號分隔)控制,
-預設 `http://localhost:3000`。
+CORS 允許的 origin **內建**了 `http://localhost:3000` 與部署的 Vercel 網域
+`https://do-system-theta.vercel.app`(打包成 exe 後客戶端**零設定**即可讓
+線上網站呼叫本機列印)。要再加來源可設環境變數 **`ALLOWED_ORIGINS`**
+(逗號分隔,會**併入**內建預設,不覆蓋)。
 
 ## 架構
 
@@ -35,22 +37,36 @@ escp_image.py       PNG → ESC/P2 24-pin bit-image
 
 ## 設定 CORS(`ALLOWED_ORIGINS`)
 
-部署到 Vercel 後,網站在 `https://your-app.vercel.app`,但仍透過
-`fetch http://localhost:9100` 呼叫本機 agent。要讓瀏覽器放行,必須把
-Vercel 網域加進 `ALLOWED_ORIGINS`:
+部署的 Vercel 網站(`https://do-system-theta.vercel.app`)透過
+`fetch http://localhost:9100` 呼叫本機 agent。此網域**已內建**在允許清單,
+所以**預設就通、不用設定**。
+
+只有在**換 Vercel 網域**或要**額外加來源**時才需設 `ALLOWED_ORIGINS`
+(會併入內建預設):
 
 ```
 # Mac / Linux
-export ALLOWED_ORIGINS="http://localhost:3000,https://your-app.vercel.app"
+export ALLOWED_ORIGINS="https://my-new-domain.vercel.app"
 
 # Windows (PowerShell)
-$env:ALLOWED_ORIGINS = "http://localhost:3000,https://your-app.vercel.app"
+$env:ALLOWED_ORIGINS = "https://my-new-domain.vercel.app"
 
 # Windows (cmd)
-set ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app
+set ALLOWED_ORIGINS=https://my-new-domain.vercel.app
 ```
 
-未設定時預設只允許 `http://localhost:3000`(本機開發用)。
+---
+
+## 不用 Windows 電腦也能拿到 exe(GitHub Actions)
+
+Repo 內建 `.github/workflows/build-agent.yml`:在雲端的 **Windows runner**
+自動用 PyInstaller 打包 exe,你**直接從 GitHub 下載**,不必自備 Windows 機器。
+
+1. GitHub → **Actions** 分頁 → 「**build-windows-agent**」→ **Run workflow**
+   (或每次改到 `print-agent/` 推上去就會自動跑)。
+2. 跑完進該次 run → **Artifacts** → 下載 `do-print-agent-windows`
+   (內含 `do-print-agent.exe`)。
+3. 把 exe 拷到客戶那台 Windows,雙擊即可(見下方「Windows 安裝」設印表機)。
 
 ---
 
@@ -85,27 +101,30 @@ pip install -r requirements.txt
 
 ```
 pip install pyinstaller
-pyinstaller --onefile app.py
+pyinstaller --onefile --name do-print-agent ^
+  --hidden-import win32print --hidden-import win32timezone --hidden-import pywintypes ^
+  app.py
 ```
 
-產物在 `dist\app.exe`。雙擊即可啟動 agent(監聽 `127.0.0.1:9100`)。
-若要在打包時就固定 CORS 網域,可先設好 `ALLOWED_ORIGINS` 環境變數,
-或用批次檔啟動(見下)。
+產物在 `dist\do-print-agent.exe`。雙擊即可啟動 agent(監聽
+`127.0.0.1:9100`)。CORS 已內建 Vercel 網域,**客戶端不用設定**。
 
-> 提示:PyInstaller 通常能自動收進 `win32print`、`flask`、`PIL`。若
-> 執行時報缺 module,可加 `--hidden-import win32print`。
+> `printer_backend.py` 是**延遲匯入** `win32print`,PyInstaller 靜態分析可能
+> 收不到,所以上面用 `--hidden-import` 明確帶入(GitHub Actions 的打包
+> 指令已包含這些)。
 
 ### 4. 開機自動啟動
 
-做一個 `start-agent.bat`:
+Repo 附了 `start-agent.bat`(直接執行同資料夾的 exe):
 
 ```bat
 @echo off
-set ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app
-"%~dp0dist\app.exe"
+REM CORS 已內建;要加別的來源才需下一行(取消註解):
+REM set ALLOWED_ORIGINS=https://my-new-domain.vercel.app
+"%~dp0do-print-agent.exe"
 ```
 
-把這個 `.bat`(或它的捷徑)放進「啟動」資料夾即可開機自動跑:
+把 exe 與 `start-agent.bat` 放同一資料夾,再把 `.bat` 的捷徑丟進「啟動」:
 
 1. 按 `Win + R`,輸入 `shell:startup`,Enter。
 2. 把 `start-agent.bat` 的捷徑丟進開啟的資料夾。
