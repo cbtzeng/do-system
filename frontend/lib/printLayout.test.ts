@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PRINTABLE_WINDOW,
   DEFAULT_PRINT_SETTINGS,
+  MAX_MARGIN_MM,
   MAX_SCALE_PERCENT,
   MIN_SCALE_PERCENT,
   PAPER_HEIGHT_MM,
   PAPER_WIDTH_MM,
   ROTATE_SHIFT_MM,
+  SUGGEST_SLACK_MM,
+  checkPrintableFit,
+  clampMarginMm,
   clampScalePercent,
+  contentEdgesMm,
   isDoForm,
   offsetToMm,
   offsetTransform,
@@ -15,6 +21,7 @@ import {
   parsePrintPreviewPayload,
   parsePrintSettings,
   sheetTransform,
+  suggestFit,
 } from "./printLayout";
 import type { MetalDoForm } from "./contract";
 
@@ -148,7 +155,7 @@ describe("sheetTransform", () => {
 });
 
 describe("parsePrintSettings", () => {
-  it("沒存過 / 壞 JSON → 預設(不旋轉、100%)", () => {
+  it("沒存過 / 壞 JSON → 預設(不旋轉、100%、上 10 / 下 3mm)", () => {
     expect(parsePrintSettings(null)).toEqual(DEFAULT_PRINT_SETTINGS);
     expect(parsePrintSettings("")).toEqual(DEFAULT_PRINT_SETTINGS);
     expect(parsePrintSettings("{not json")).toEqual(DEFAULT_PRINT_SETTINGS);
@@ -156,19 +163,51 @@ describe("parsePrintSettings", () => {
   });
 
   it("讀回上次的設定", () => {
-    const raw = JSON.stringify({ rotate: true, scalePercent: 90 });
-    expect(parsePrintSettings(raw)).toEqual({ rotate: true, scalePercent: 90 });
+    const raw = JSON.stringify({
+      rotate: true,
+      scalePercent: 90,
+      printableTopMm: 12,
+      printableBottomMm: 4.5,
+    });
+    expect(parsePrintSettings(raw)).toEqual({
+      rotate: true,
+      scalePercent: 90,
+      printableTopMm: 12,
+      printableBottomMm: 4.5,
+    });
   });
 
   it("缺欄位 / 型別錯 → 該欄回退預設", () => {
     expect(parsePrintSettings("{}")).toEqual(DEFAULT_PRINT_SETTINGS);
     expect(parsePrintSettings(JSON.stringify({ rotate: "yes" }))).toEqual({
+      ...DEFAULT_PRINT_SETTINGS,
       rotate: false,
       scalePercent: 100,
     });
     expect(
       parsePrintSettings(JSON.stringify({ rotate: true, scalePercent: 5000 })),
-    ).toEqual({ rotate: true, scalePercent: MAX_SCALE_PERCENT });
+    ).toEqual({
+      ...DEFAULT_PRINT_SETTINGS,
+      rotate: true,
+      scalePercent: MAX_SCALE_PERCENT,
+    });
+  });
+
+  it("#K 舊存檔(只有 rotate / scalePercent)→ 補上實測預設邊界,不洗掉既有設定", () => {
+    const legacy = JSON.stringify({ rotate: true, scalePercent: 85 });
+    expect(parsePrintSettings(legacy)).toEqual({
+      rotate: true,
+      scalePercent: 85,
+      printableTopMm: 10,
+      printableBottomMm: 3,
+    });
+  });
+
+  it("邊界超出範圍 → 夾到 0–60mm", () => {
+    const raw = JSON.stringify({ printableTopMm: -5, printableBottomMm: 999 });
+    const s = parsePrintSettings(raw);
+    expect(s.printableTopMm).toBe(0);
+    expect(s.printableBottomMm).toBe(MAX_MARGIN_MM);
   });
 });
 
@@ -248,5 +287,232 @@ describe("parsePrintPreviewPayload", () => {
     expect(parsePrintPreviewPayload("")).toBeNull();
     expect(parsePrintPreviewPayload("{not json")).toBeNull();
     expect(parsePrintPreviewPayload(JSON.stringify({ form: { template: "x" } }))).toBeNull();
+  });
+});
+
+/* ------------------------------------------------ 內容落點(#33 讀數) */
+
+describe("contentEdgesMm", () => {
+  it("100% 不微調 → 內容 = 整張頁面", () => {
+    const e = contentEdgesMm({ scale: 100, offsetX: 0, offsetY: 0, rotate: false });
+    expect(e).toEqual({
+      pageWidthMm: 215.9,
+      pageHeightMm: 139.7,
+      topMm: 0,
+      bottomMm: 139.7,
+      heightMm: 139.7,
+      leftMm: 0,
+      rightMm: 215.9,
+      widthMm: 215.9,
+    });
+  });
+
+  // 現場實測的三組(H = 139.7mm)。縮放以紙張中心為原點,故上下各留 (H − H·s)/2。
+  it("縮放 90% + Y=0 → 上緣 ≈ 6.98mm、下緣 ≈ 132.71mm", () => {
+    const e = contentEdgesMm({ scale: 90, offsetX: 0, offsetY: 0, rotate: false });
+    expect(e.heightMm).toBeCloseTo(125.73, 3);
+    expect(e.topMm).toBeCloseTo(6.985, 3);
+    expect(e.bottomMm).toBeCloseTo(132.715, 3);
+  });
+
+  it("縮放 90% + Y=40 → 上緣 ≈ 12.63mm、下緣 ≈ 138.36mm(下面爆出去)", () => {
+    const e = contentEdgesMm({ scale: 90, offsetX: 0, offsetY: 40, rotate: false });
+    expect(e.topMm).toBeCloseTo(12.629, 3);
+    expect(e.bottomMm).toBeCloseTo(138.359, 3);
+  });
+
+  it("縮放 85% + Y=18 → 上緣 ≈ 13.02mm、下緣 ≈ 131.76mm(兩邊都進得去)", () => {
+    const e = contentEdgesMm({ scale: 85, offsetX: 0, offsetY: 18, rotate: false });
+    expect(e.heightMm).toBeCloseTo(118.745, 3);
+    // 數學值 13.0175 / 131.7625;取到小數第 3 位(double 的 13.0175 其實是
+    // 13.017499…,故進位成 13.017)。螢幕顯示到小數第 2 位 → 13.02 / 131.76。
+    expect(e.topMm).toBeCloseTo(13.0175, 2);
+    expect(e.bottomMm).toBeCloseTo(131.7625, 2);
+  });
+
+  it("下緣 = 上緣 + 內容高度(恆等式)", () => {
+    for (const scale of [80, 85, 90, 100, 110, 120]) {
+      for (const offsetY of [-30, 0, 18, 40]) {
+        const e = contentEdgesMm({ scale, offsetX: 0, offsetY, rotate: false });
+        // 各欄位各自取到小數第 3 位 → 恆等式最多差 1 個 ulp(0.001mm)。
+        expect(e.bottomMm).toBeCloseTo(e.topMm + e.heightMm, 2);
+        expect(e.heightMm).toBeCloseTo((139.7 * scale) / 100, 3);
+      }
+    }
+  });
+
+  it("水平同理:左緣用頁寬與 X 微調", () => {
+    // 90% → 左右各留 (215.9 − 194.31)/2 = 10.795mm;X=60(= 1 吋)再往右推 25.4mm。
+    const e = contentEdgesMm({ scale: 90, offsetX: 60, offsetY: 0, rotate: false });
+    expect(e.widthMm).toBeCloseTo(194.31, 3);
+    expect(e.leftMm).toBeCloseTo(10.795 + 25.4, 3);
+    expect(e.rightMm).toBeCloseTo(e.leftMm + e.widthMm, 3);
+  });
+
+  it("Y 負值 = 往上移", () => {
+    const zero = contentEdgesMm({ scale: 90, offsetX: 0, offsetY: 0, rotate: false });
+    const up = contentEdgesMm({ scale: 90, offsetX: 0, offsetY: -18, rotate: false });
+    expect(up.topMm).toBeCloseTo(zero.topMm - 2.54, 3);
+  });
+
+  it("旋轉 90°:走紙方向換成長邊 → 頁高 215.9mm", () => {
+    const e = contentEdgesMm({ scale: 90, offsetX: 0, offsetY: 0, rotate: true });
+    expect(e.pageHeightMm).toBe(215.9);
+    expect(e.pageWidthMm).toBe(139.7);
+    expect(e.heightMm).toBeCloseTo(194.31, 3);
+    expect(e.topMm).toBeCloseTo(10.795, 3);
+    expect(e.bottomMm).toBeCloseTo(205.105, 3);
+  });
+
+  it("縮放超出 80–120% 先被夾住(與輸入框同一套規則)", () => {
+    const e = contentEdgesMm({ scale: 500, offsetX: 0, offsetY: 0, rotate: false });
+    expect(e.heightMm).toBeCloseTo(139.7 * 1.2, 3);
+    // 120% → 上緣為負(內容比紙還高,上下都超出)。
+    expect(e.topMm).toBeCloseTo(-13.97, 3);
+  });
+});
+
+describe("clampMarginMm", () => {
+  it("預設邊界 = 現場實測的上 10 / 下 3mm", () => {
+    expect(DEFAULT_PRINTABLE_WINDOW).toEqual({ topMm: 10, bottomMm: 3 });
+  });
+
+  it("夾在 0–60mm", () => {
+    expect(clampMarginMm(-3, 10)).toBe(0);
+    expect(clampMarginMm(999, 10)).toBe(MAX_MARGIN_MM);
+    expect(clampMarginMm(12.5, 10)).toBe(12.5);
+  });
+
+  it("接受字串;空白 / NaN / null → fallback(輸入框清空時不要炸)", () => {
+    expect(clampMarginMm("7.5", 10)).toBe(7.5);
+    expect(clampMarginMm("", 10)).toBe(10);
+    expect(clampMarginMm("abc", 3)).toBe(3);
+    expect(clampMarginMm(NaN, 3)).toBe(3);
+    expect(clampMarginMm(null, 3)).toBe(3);
+    expect(clampMarginMm(undefined, 3)).toBe(3);
+  });
+});
+
+describe("checkPrintableFit(上 10 / 下 3mm)", () => {
+  const w = DEFAULT_PRINTABLE_WINDOW;
+  const edges = (scale: number, offsetY: number) =>
+    contentEdgesMm({ scale, offsetX: 0, offsetY, rotate: false });
+
+  it("可列印範圍 = 10 – 136.7mm(高 126.7mm)", () => {
+    const fit = checkPrintableFit(edges(100, 0), w);
+    expect(fit.printableTopMm).toBe(10);
+    expect(fit.printableBottomMm).toBeCloseTo(136.7, 3);
+    expect(fit.printableHeightMm).toBeCloseTo(126.7, 3);
+  });
+
+  it("100%:一整節就是頁高 → 上下都被裁(現場遇到的狀況)", () => {
+    const fit = checkPrintableFit(edges(100, 0), w);
+    expect(fit.ok).toBe(false);
+    expect(fit.topClipMm).toBeCloseTo(10, 3);
+    expect(fit.bottomClipMm).toBeCloseTo(3, 3);
+  });
+
+  it("90% + Y=0:上緣 6.985 < 10 → 上面被裁 3.015mm", () => {
+    const fit = checkPrintableFit(edges(90, 0), w);
+    expect(fit.ok).toBe(false);
+    expect(fit.topClipMm).toBeCloseTo(3.015, 3);
+    expect(fit.bottomClipMm).toBe(0);
+  });
+
+  it("90% + Y=40:往下推之後改成下面被裁(顧此失彼 —— 90% 塞不進去)", () => {
+    const fit = checkPrintableFit(edges(90, 40), w);
+    expect(fit.ok).toBe(false);
+    expect(fit.topClipMm).toBe(0);
+    expect(fit.bottomClipMm).toBeCloseTo(1.659, 3);
+  });
+
+  it("85% + Y=18:兩邊都在範圍內 → OK", () => {
+    const fit = checkPrintableFit(edges(85, 18), w);
+    expect(fit.ok).toBe(true);
+    expect(fit.topClipMm).toBe(0);
+    expect(fit.bottomClipMm).toBe(0);
+  });
+
+  it("剛好貼齊邊界不算被裁(浮點容差)", () => {
+    // 邊界設 0 → 可列印範圍 = 整張頁面,100% 內容剛好貼齊。
+    const fit = checkPrintableFit(edges(100, 0), { topMm: 0, bottomMm: 0 });
+    expect(fit.ok).toBe(true);
+  });
+});
+
+describe("suggestFit", () => {
+  it("上 10 / 下 3mm → 建議 87% + Y=25,內容落在 12.6 – 134.1mm(可列印範圍內)", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, false);
+    expect(s.scalePercent).toBe(87);
+    expect(s.offsetY).toBe(25);
+    expect(s.fits).toBe(true);
+    expect(s.fit.ok).toBe(true);
+    expect(s.edges.heightMm).toBeCloseTo(121.539, 3);
+    expect(s.edges.topMm).toBeCloseTo(12.608, 3);
+    expect(s.edges.bottomMm).toBeCloseTo(134.147, 3);
+  });
+
+  it("建議值一定塞得進可列印範圍,且留有餘裕", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, false);
+    expect(s.edges.topMm).toBeGreaterThanOrEqual(s.fit.printableTopMm);
+    expect(s.edges.bottomMm).toBeLessThanOrEqual(s.fit.printableBottomMm);
+    // 內容高 ≤ 可列印高 − 4mm 餘裕。
+    expect(s.edges.heightMm).toBeLessThanOrEqual(
+      s.fit.printableHeightMm - SUGGEST_SLACK_MM,
+    );
+  });
+
+  it("內容置中於可列印範圍(上下餘裕大致相等)", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, false);
+    const gapTop = s.edges.topMm - s.fit.printableTopMm;
+    const gapBottom = s.fit.printableBottomMm - s.edges.bottomMm;
+    // 只差在 Y 被四捨五入成整數 1/180 吋(≈0.14mm)。
+    expect(Math.abs(gapTop - gapBottom)).toBeLessThan(0.3);
+  });
+
+  it("回傳的 offsetY 是整數(微調輸入框只吃整數步進)", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, false);
+    expect(Number.isInteger(s.offsetY)).toBe(true);
+    expect(Number.isInteger(s.scalePercent)).toBe(true);
+  });
+
+  it("建議值套回 contentEdgesMm 會得到同一組落點(讀數 = 建議)", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, false);
+    expect(
+      contentEdgesMm({
+        scale: s.scalePercent,
+        offsetX: 0,
+        offsetY: s.offsetY,
+        rotate: false,
+      }),
+    ).toEqual(s.edges);
+  });
+
+  it("不動 X:水平沒有硬體邊界問題,保留使用者對好的左右位置", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, false, 7);
+    const noX = suggestFit(DEFAULT_PRINTABLE_WINDOW, false, 0);
+    expect(s.scalePercent).toBe(noX.scalePercent);
+    expect(s.offsetY).toBe(noX.offsetY);
+    expect(s.edges.leftMm).toBeCloseTo(noX.edges.leftMm + (7 / 60) * 25.4, 3);
+  });
+
+  it("邊界很小 → 可以用到 100%(不會為了縮而縮)", () => {
+    const s = suggestFit({ topMm: 0, bottomMm: 0 }, false);
+    expect(s.scalePercent).toBe(97); // 139.7 − 4mm 餘裕 → 97%
+    expect(s.fits).toBe(true);
+  });
+
+  it("邊界大到連 80% 都塞不下 → fits = false(不假裝有解)", () => {
+    const s = suggestFit({ topMm: 30, bottomMm: 30 }, false);
+    expect(s.scalePercent).toBe(MIN_SCALE_PERCENT);
+    expect(s.fits).toBe(false);
+    expect(s.fit.ok).toBe(false);
+  });
+
+  it("旋轉 90°:改以 215.9mm 頁高計算", () => {
+    const s = suggestFit(DEFAULT_PRINTABLE_WINDOW, true);
+    expect(s.edges.pageHeightMm).toBe(215.9);
+    expect(s.scalePercent).toBe(92); // (215.9 − 13 − 4) / 215.9 → 92%
+    expect(s.fits).toBe(true);
   });
 });

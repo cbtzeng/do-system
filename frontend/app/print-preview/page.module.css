@@ -262,6 +262,200 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ------------------- 落點讀數 / 可列印範圍 / 自動建議(#33) */
+
+.fitPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.fitRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 24px;
+}
+
+/* 讀數:內容落在頁面的哪一段(mm) */
+.readout {
+  flex: 1;
+  min-width: 280px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.readoutItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.readoutItem dt {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.readoutItem dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-geist-mono), monospace;
+}
+
+/* 該邊會被裁掉 → 數字轉紅。 */
+.readoutBad {
+  color: var(--danger);
+}
+
+/* 可列印範圍輸入 */
+.windowInputs {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 190px;
+}
+
+.windowTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.windowNote {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.windowRow {
+  display: flex;
+  gap: 10px;
+}
+
+.marginField {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.marginLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.marginUnit {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.windowRange {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.windowRange code {
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 警告 / OK */
+.fitStatus {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.7;
+  border: 1px solid transparent;
+}
+
+.fitOk {
+  background: var(--sage-50);
+  border-color: var(--border-strong);
+  color: var(--brand-active);
+  font-weight: 600;
+}
+
+.fitWarn {
+  background: #fdf3e7;
+  border-color: #e9c48a;
+  color: #7a4a12;
+}
+
+.fitWarn strong {
+  color: #a3390f;
+}
+
+/* 自動建議 */
+.suggestRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.suggestBtn {
+  flex: none;
+  border: 1px solid var(--brand);
+  background: var(--surface);
+  color: var(--brand-active);
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggestBtn:hover:not(:disabled) {
+  background: var(--sage-50);
+}
+
+.suggestBtn:active:not(:disabled) {
+  background: var(--sage-100);
+  transform: translateY(1px);
+}
+
+.suggestBtn:disabled {
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.suggestText {
+  flex: 1;
+  min-width: 240px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.suggestText strong {
+  color: var(--brand-active);
+}
+
+.suggestText code {
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --------------------------------------- 列印設定指引(#32) */
 
 .checklist {
@@ -462,10 +656,49 @@
   border-top: 1px dashed rgba(31, 107, 67, 0.18);
 }
 
+/* ------------------------- 可列印範圍輔助線(#33,僅螢幕顯示) */
+/* 畫在**頁面框**(.sheet)上,不是紙張上:這是印表機的硬體限制,不會跟著
+   紙張的縮放/旋轉走。故 mm 值可直接對應 @page 座標。
+   刻意與紙張輔助線(綠色虛線)區隔 —— 橘色實線 + 斜線死區。 */
+
+.pageGuides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 印不到的死區(上 / 下):橘色斜線。 */
+.guideDead {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(200, 90, 20, 0.13),
+    rgba(200, 90, 20, 0.13) 3px,
+    rgba(200, 90, 20, 0) 3px,
+    rgba(200, 90, 20, 0) 7px
+  );
+}
+
+/* 可列印範圍的上下界:橘色實線。 */
+.guidePrintable {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px solid rgba(196, 88, 20, 0.9);
+  border-bottom: 1.5px solid rgba(196, 88, 20, 0.9);
+}
+
 .stageNote {
   font-size: 12px;
   color: var(--text-faint);
   text-align: center;
+}
+
+.stageNoteWindow {
+  color: #a3390f;
+  font-weight: 600;
 }
 
 /* =========================================================== 列印樣式 */
@@ -498,10 +731,11 @@
     max-width: none !important;
   }
 
-  /* 工具列、說明、輔助線:螢幕專用。 */
+  /* 工具列、說明、輔助線(含 #33 的可列印範圍線):螢幕專用,一律不印。 */
   .toolbar,
   .stageNote,
-  .guides {
+  .guides,
+  .pageGuides {
     display: none !important;
   }
 
