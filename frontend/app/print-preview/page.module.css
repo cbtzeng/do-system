@@ -1,0 +1,331 @@
+/* 新分頁列印預覽(#K)。螢幕:工具列 + 實體尺寸紙張 + 輔助線;列印:只印 .paper。
+   注意 @page 規則由 page.tsx 動態注入 <style>(離開本頁即移除,不影響其他路由)。 */
+
+.page {
+  max-width: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+/* --------------------------------------------------- 沒有資料時的提示 */
+
+.notice {
+  margin-top: 40px;
+  max-width: 460px;
+  padding: 24px 28px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.noticeTitle {
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.noticeLink {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.noticeLink:hover {
+  color: var(--brand-hover);
+}
+
+/* --------------------------------------------------------- 螢幕工具列 */
+
+.toolbar {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.toolbarMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.printBtn {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  border-radius: var(--radius-md);
+  padding: 11px 20px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  transition: background 0.12s ease, transform 0.04s ease;
+}
+
+.printBtn:hover {
+  background: var(--brand-hover);
+}
+
+.printBtn:active {
+  background: var(--brand-active);
+  transform: translateY(1px);
+}
+
+.nudges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex: 1;
+}
+
+.nudge {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nudgeLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.nudgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nudgeInput {
+  width: 72px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stepBtn {
+  width: 28px;
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--sage-50);
+  color: var(--brand-active);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepBtn:hover {
+  background: var(--sage-100);
+}
+
+.nudgeMm {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+}
+
+.resetBtn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.resetBtn:hover {
+  background: var(--sage-50);
+  color: var(--brand-active);
+}
+
+.hint {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.hint code {
+  font-family: var(--font-geist-mono), monospace;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.hint strong {
+  color: var(--brand-active);
+}
+
+/* ------------------------------------------------------- 紙張(實體尺寸) */
+
+.stage {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/* 中一刀:215.9 × 139.7 mm。DoPreview 以 cqw 縮放 → 放進此容器即為 1:1 實體比例。 */
+.paper {
+  position: relative;
+  flex: none;
+  width: 215.9mm;
+  height: 139.7mm;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(16, 32, 24, 0.1), 0 14px 40px rgba(16, 32, 24, 0.08);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* X/Y 微調:以 mm 平移整張單(列印時即真實紙上位移)。 */
+.shift {
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+}
+
+/* ----------------------------------------------- 輔助線(僅螢幕顯示) */
+
+.guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 紙張邊界 */
+.guideEdge {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(31, 107, 67, 0.55);
+}
+
+/* 安全邊界(內縮 5mm) */
+.guideSafe {
+  position: absolute;
+  inset: 5mm;
+  border: 1px dotted rgba(31, 107, 67, 0.25);
+}
+
+/* 垂直中線 */
+.guideVCenter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px dashed rgba(31, 107, 67, 0.18);
+}
+
+/* 水平中線 */
+.guideHCenter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed rgba(31, 107, 67, 0.18);
+}
+
+.stageNote {
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* =========================================================== 列印樣式 */
+
+@media print {
+  /* 頁面底色 / 版面 chrome:一律不印。body.do-print-preview 由本頁掛上,離開即移除。 */
+  :global(html) {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+
+  :global(body.do-print-preview) {
+    display: block !important;
+    min-height: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 頂部導覽列(AppNav)不印。 */
+  :global(body.do-print-preview header) {
+    display: none !important;
+  }
+
+  .page {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  /* 工具列、說明、輔助線:螢幕專用。 */
+  .toolbar,
+  .stageNote,
+  .guides {
+    display: none !important;
+  }
+
+  .stage {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* 只印紙張本身,零外距,對齊 @page 的 215.9 × 139.7mm。 */
+  .paper {
+    width: 215.9mm !important;
+    height: 139.7mm !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 預覽卡片的陰影不需要印出來(邊框仍保留)。 */
+  .paper * {
+    box-shadow: none !important;
+  }
+}

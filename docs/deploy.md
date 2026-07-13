@@ -75,6 +75,24 @@
      ```
      能回應即代表 HTTPS→localhost 這條路徑通。若被 CORS 擋,調整 agent 的允許來源。
    - **備案**(若某環境擋掉 http→localhost):agent 自簽 HTTPS,或用本機 tunnel。
+4. **瀏覽器直印(第二條路徑,免 agent)**
+   - 開單頁按「⧉ 在新分頁開啟列印預覽」→ `/print-preview` 以中一刀實體尺寸(215.9 × 139.7 mm)呈現。
+   - 按「用瀏覽器列印」→ 系統列印對話框 → 選 **EPSON LQ-310 原廠驅動**、邊界 `無`、縮放 `100%`。
+   - 詳見 [`docs/browser-print.md`](./browser-print.md)。
+
+---
+
+## 5.1 兩條列印路徑與印表機佇列
+
+同一台 LQ-310 建議**建兩個佇列**,兩條路徑各用各的,現場比較哪條對位較準:
+
+| 路徑 | 佇列 / 驅動 | 需要 agent |
+|---|---|---|
+| A. 開單頁「🖨 列印」(agent 圖形列印) | **Generic / Text Only**(raw) | 需要(`:9100`) |
+| B. `/print-preview`「用瀏覽器列印」 | **原廠 EPSON LQ-310 驅動** | 不需要 |
+
+瀏覽器**無法靜默列印**,B 路徑一定會跳出系統列印對話框。細節與對話框設定見
+[`docs/browser-print.md`](./browser-print.md)。
 
 ---
 
