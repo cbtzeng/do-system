@@ -168,6 +168,175 @@
   color: var(--brand-active);
 }
 
+/* --------------------------------------- 列印方向 / 縮放(#32) */
+
+.orientRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* 旋轉 90° 開關(checkbox 做成 switch) */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switchInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switchTrack {
+  flex: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--sage-100);
+  border: 1px solid var(--border-strong);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.switchTrack::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease;
+}
+
+.switchInput:checked + .switchTrack {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.switchInput:checked + .switchTrack::after {
+  transform: translateX(18px);
+}
+
+.switchInput:focus-visible + .switchTrack {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.switchNote {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.orientState {
+  flex: 1;
+  min-width: 200px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.orientState code {
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------- 列印設定指引(#32) */
+
+.checklist {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.checklistSummary {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-active);
+  list-style: none;
+}
+
+.checklistSummary::-webkit-details-marker {
+  display: none;
+}
+
+.checklistSummary::before {
+  content: "▸ ";
+  color: var(--text-faint);
+}
+
+.checklist[open] .checklistSummary::before {
+  content: "▾ ";
+}
+
+.checklistSummary:hover {
+  background: var(--sage-50);
+}
+
+.checklistBody {
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.checklistSteps {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  list-style: decimal;
+}
+
+.checklistSteps strong {
+  color: var(--text);
+}
+
+.checklistSteps code,
+.checklistWhy code {
+  font-family: var(--font-geist-mono), monospace;
+  background: var(--sage-50);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--brand-active);
+}
+
+.checklistWhy {
+  margin-top: 12px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-faint);
+  background: var(--sage-50);
+  border-radius: var(--radius-sm);
+}
+
 .hint {
   font-size: 12.5px;
   line-height: 1.75;
@@ -202,14 +371,45 @@
   padding-bottom: 8px;
 }
 
-/* 中一刀:215.9 × 139.7 mm。DoPreview 以 cqw 縮放 → 放進此容器即為 1:1 實體比例。 */
-.paper {
+/* 頁面框:@page 宣告的紙張。橫式(預設)= 215.9 × 139.7mm;
+   旋轉時換成直式 139.7 × 215.9mm(見 .sheetPortrait)。
+
+   overflow: hidden 是必要的,不是保險:旋轉時紙張的 layout box 仍是 215.9mm 寬,
+   比直式頁面(139.7mm)寬 —— 這個**水平溢出**會觸發 Chrome 列印的
+   shrink-to-fit,把整頁縮小(實測縮到 ~71%,四周多出一圈空白)。
+   把它裁掉,溢出的只是 layout box;真正要印的是 transform 之後的視覺框,
+   而那個框正好等於頁面,所以什麼都不會被切到。 */
+.sheet {
   position: relative;
   flex: none;
   width: 215.9mm;
   height: 139.7mm;
   overflow: hidden;
   background: #fff;
+}
+
+/* 旋轉 90°:頁面框轉直式 —— 紙張(.paper)轉 90° 後的外框正好等於它。 */
+.sheetPortrait {
+  width: 139.7mm;
+  height: 215.9mm;
+}
+
+/* 中一刀送貨單:215.9 × 139.7 mm。DoPreview 以 cqw 縮放 → 放進此容器即為 1:1 實體比例。
+   layout box 一律貼頁面框左上角(top/left: 0),旋轉/縮放全部走 transform(見
+   printLayout.sheetTransform)—— transform 不影響 layout,所以:
+     a) 不會因為 layout box 溢出頁面框下緣而多印一頁(用 top/left: 50% 置中會);
+     b) cqw 仍以 215.9mm 計算 → 縮放是「整張等比縮」,不會重排版。
+   置中/貼齊由 transform 的 translate 負責(旋轉時 -38.1mm / +38.1mm)。 */
+.paper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  width: 215.9mm;
+  height: 139.7mm;
+  overflow: hidden;
+  background: #fff;
+  transform-origin: center center;
   box-shadow: 0 2px 6px rgba(16, 32, 24, 0.1), 0 14px 40px rgba(16, 32, 24, 0.08);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
@@ -312,11 +512,28 @@
     overflow: visible !important;
   }
 
-  /* 只印紙張本身,零外距,對齊 @page 的 215.9 × 139.7mm。 */
-  .paper {
+  /* 只印紙張本身,零外距。頁面框對齊 @page:
+     預設 215.9 × 139.7mm(橫式);旋轉時 139.7 × 215.9mm(直式)。 */
+  .sheet {
     width: 215.9mm !important;
     height: 139.7mm !important;
     margin: 0 !important;
+    /* 必須維持 hidden:見上面的 shrink-to-fit 說明。 */
+    overflow: hidden !important;
+    background: #fff !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sheetPortrait {
+    width: 139.7mm !important;
+    height: 215.9mm !important;
+  }
+
+  /* 送貨單本身尺寸固定;旋轉/縮放由 inline transform 帶入(以中心為原點)。 */
+  .paper {
+    width: 215.9mm !important;
+    height: 139.7mm !important;
     box-shadow: none !important;
     break-inside: avoid;
     page-break-inside: avoid;
