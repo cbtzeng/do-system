@@ -15,11 +15,17 @@ import DoPreview from "../../components/DoPreview";
 import type { DoForm } from "../../lib/contract";
 import {
   DEFAULT_PRINT_SETTINGS,
+  MAX_MARGIN_MM,
   MAX_SCALE_PERCENT,
   MIN_SCALE_PERCENT,
   PAPER_HEIGHT_MM,
   PAPER_WIDTH_MM,
+  SUGGEST_SLACK_MM,
+  checkPrintableFit,
+  clampMarginMm,
   clampScalePercent,
+  contentEdgesMm,
+  feedAxis,
   loadPrintPreviewForm,
   loadPrintSettings,
   offsetToMm,
@@ -28,8 +34,12 @@ import {
   pageSizeMm,
   savePrintSettings,
   sheetTransform,
+  suggestFit,
 } from "../../lib/printLayout";
 import styles from "./page.module.css";
+
+/** 讀數一律顯示到小數第 2 位(mm)。 */
+const mm = (v: number) => `${v.toFixed(2)} mm`;
 
 type LoadState =
   | { kind: "loading" }
@@ -48,6 +58,13 @@ export default function PrintPreviewPage() {
   const [scaleText, setScaleText] = useState(
     String(DEFAULT_PRINT_SETTINGS.scalePercent),
   );
+  // 印表機的不可列印邊界(#33)。同樣存「使用者打的字」,理由同 scaleText。
+  const [topText, setTopText] = useState(
+    String(DEFAULT_PRINT_SETTINGS.printableTopMm),
+  );
+  const [bottomText, setBottomText] = useState(
+    String(DEFAULT_PRINT_SETTINGS.printableBottomMm),
+  );
   // localStorage 讀完之前不要寫回去,免得把使用者記住的設定洗成預設值。
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -63,22 +80,38 @@ export default function PrintPreviewPage() {
     setState({ kind: "ready", form });
   }, []);
 
-  // 讀回上次的列印設定(旋轉 / 縮放)。SSR 不能碰 localStorage,故放在 effect。
+  // 讀回上次的列印設定(旋轉 / 縮放 / 可列印邊界)。SSR 不能碰 localStorage,故放在 effect。
   useEffect(() => {
     const settings = loadPrintSettings();
     setRotate(settings.rotate);
     setScaleText(String(settings.scalePercent));
+    setTopText(String(settings.printableTopMm));
+    setBottomText(String(settings.printableBottomMm));
     setSettingsLoaded(true);
   }, []);
 
   // 實際採用的縮放:輸入框清空 / 亂打 → 100%,超出範圍 → 夾到 80–120%。
   const scalePercent = clampScalePercent(scaleText);
+  // 實際採用的可列印邊界:清空 / 亂打 → 回實測預設值,超出範圍 → 夾到 0–60mm。
+  const printableTopMm = clampMarginMm(
+    topText,
+    DEFAULT_PRINT_SETTINGS.printableTopMm,
+  );
+  const printableBottomMm = clampMarginMm(
+    bottomText,
+    DEFAULT_PRINT_SETTINGS.printableBottomMm,
+  );
 
   // 記住設定,下次開本頁不必重設(存的是夾過的值)。
   useEffect(() => {
     if (!settingsLoaded) return;
-    savePrintSettings({ rotate, scalePercent });
-  }, [settingsLoaded, rotate, scalePercent]);
+    savePrintSettings({
+      rotate,
+      scalePercent,
+      printableTopMm,
+      printableBottomMm,
+    });
+  }, [settingsLoaded, rotate, scalePercent, printableTopMm, printableBottomMm]);
 
   // @page 與「列印時隱藏其他頁面元素」只在本頁生效:
   //   - @page 規則以 <style> 動態注入,離開本頁即移除(不污染其他路由的列印)。
@@ -110,6 +143,41 @@ export default function PrintPreviewPage() {
   // 紙張本身的 transform:旋轉 90° + 縮放,以紙張中心為原點(置中、不裁切)。
   const paperTransform = sheetTransform(rotate, scalePercent);
   const page = pageSizeMm(rotate);
+
+  /* ---------------------------------------- 落點讀數 / 範圍檢查(#33) */
+
+  const printWindow = useMemo(
+    () => ({ topMm: printableTopMm, bottomMm: printableBottomMm }),
+    [printableTopMm, printableBottomMm],
+  );
+
+  // 內容會落在頁面的哪一段(mm,自頁面頂端起算)。
+  const edges = useMemo(
+    () => contentEdgesMm({ scale: scalePercent, offsetX, offsetY, rotate }),
+    [scalePercent, offsetX, offsetY, rotate],
+  );
+
+  // 有沒有超出印表機印得到的範圍。
+  const fit = useMemo(
+    () => checkPrintableFit(edges, printWindow),
+    [edges, printWindow],
+  );
+
+  // 「自動建議」會給的那組值(先算好顯示,按了才套用)。
+  // 只動走紙方向那一軸(旋轉時是 X),另一軸帶回使用者目前的值。
+  const suggestion = useMemo(
+    () => suggestFit(printWindow, rotate, { offsetX, offsetY }),
+    [printWindow, rotate, offsetX, offsetY],
+  );
+
+  const applySuggestion = () => {
+    setScaleText(String(suggestion.scalePercent));
+    setOffsetX(suggestion.offsetX);
+    setOffsetY(suggestion.offsetY);
+  };
+
+  // 走紙方向(上下)是由哪一個微調在推?旋轉 90° 時 X/Y 會互換(見 pageOffsetMm)。
+  const feedLabel = feedAxis(rotate) === "x" ? "X" : "Y";
 
   if (state.kind === "loading") {
     return (
@@ -225,6 +293,145 @@ export default function PrintPreviewPage() {
           </p>
         </div>
 
+        {/* 落點讀數 + 可列印範圍檢查 + 自動建議(#33)。 */}
+        <div className={styles.fitPanel}>
+          <div className={styles.fitRow}>
+            {/* 讀數:內容會落在頁面的哪一段(mm,自頁面頂端起算)。 */}
+            <dl className={styles.readout}>
+              <div className={styles.readoutItem}>
+                <dt>內容上緣</dt>
+                <dd
+                  className={fit.topClipMm > 0 ? styles.readoutBad : undefined}
+                >
+                  {mm(edges.topMm)}
+                </dd>
+              </div>
+              <div className={styles.readoutItem}>
+                <dt>內容下緣</dt>
+                <dd
+                  className={
+                    fit.bottomClipMm > 0 ? styles.readoutBad : undefined
+                  }
+                >
+                  {mm(edges.bottomMm)}
+                </dd>
+              </div>
+              <div className={styles.readoutItem}>
+                <dt>內容高度</dt>
+                <dd>{mm(edges.heightMm)}</dd>
+              </div>
+              <div className={styles.readoutItem}>
+                <dt>內容左緣</dt>
+                <dd>{mm(edges.leftMm)}</dd>
+              </div>
+              <div className={styles.readoutItem}>
+                <dt>內容右緣</dt>
+                <dd>{mm(edges.rightMm)}</dd>
+              </div>
+              <div className={styles.readoutItem}>
+                <dt>內容寬度</dt>
+                <dd>{mm(edges.widthMm)}</dd>
+              </div>
+            </dl>
+
+            {/* 可列印範圍:印表機印不到的上下邊界(每台不同,實測後填進來)。 */}
+            <div className={styles.windowInputs}>
+              <p className={styles.windowTitle}>
+                可列印範圍
+                <span className={styles.windowNote}>印表機印不到的邊界</span>
+              </p>
+              <div className={styles.windowRow}>
+                <MarginInput
+                  id="pp-printable-top"
+                  label="上"
+                  value={topText}
+                  onChange={setTopText}
+                  onBlur={() => setTopText(String(printableTopMm))}
+                />
+                <MarginInput
+                  id="pp-printable-bottom"
+                  label="下"
+                  value={bottomText}
+                  onChange={setBottomText}
+                  onBlur={() => setBottomText(String(printableBottomMm))}
+                />
+              </div>
+              <p className={styles.windowRange}>
+                可印:<code>{mm(fit.printableTopMm)}</code> –{" "}
+                <code>{mm(fit.printableBottomMm)}</code>(高{" "}
+                {mm(fit.printableHeightMm)})
+              </p>
+              {rotate && (
+                <p className={styles.axisNote}>
+                  ⚠️ 已旋轉 90°:單子跟著轉,<strong>X 微調</strong>
+                  才是上下移動(Y 變成左右移)。
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 警告 / OK:把「要不要試印」這件事變成螢幕上就能看的檢查。 */}
+          {fit.ok ? (
+            <p className={`${styles.fitStatus} ${styles.fitOk}`} role="status">
+              ✓　內容完全落在可列印範圍內（上緣還有{" "}
+              {mm(edges.topMm - fit.printableTopMm)}、下緣還有{" "}
+              {mm(fit.printableBottomMm - edges.bottomMm)} 餘裕）。
+            </p>
+          ) : (
+            <p className={`${styles.fitStatus} ${styles.fitWarn}`} role="alert">
+              ⚠️
+              {fit.topClipMm > 0 && (
+                <>
+                  　<strong>上緣會被裁掉 {mm(fit.topClipMm)}</strong> —
+                  請降低縮放或加大 {feedLabel}。
+                </>
+              )}
+              {fit.bottomClipMm > 0 && (
+                <>
+                  　<strong>下緣會被裁掉 {mm(fit.bottomClipMm)}</strong> —
+                  請降低縮放或減小 {feedLabel}。
+                </>
+              )}
+              {fit.topClipMm > 0 && fit.bottomClipMm > 0 && (
+                <>
+                  　內容比可列印範圍還高,單靠移動 {feedLabel} 救不回來 ——
+                  <strong>一定要縮小</strong>。
+                </>
+              )}
+            </p>
+          )}
+
+          {/* 自動建議:直接算出一組塞得進可列印範圍的縮放 + Y。 */}
+          <div className={styles.suggestRow}>
+            <button
+              type="button"
+              className={styles.suggestBtn}
+              onClick={applySuggestion}
+              disabled={!suggestion.fits}
+            >
+              ✨　自動建議
+            </button>
+            {suggestion.fits ? (
+              <p className={styles.suggestText}>
+                建議 <strong>縮放 {suggestion.scalePercent}%</strong> +{" "}
+                <strong>
+                  {suggestion.axis === "x"
+                    ? `X ${suggestion.offsetX}`
+                    : `Y ${suggestion.offsetY}`}
+                </strong>{" "}
+                → 內容落在 <code>{mm(suggestion.edges.topMm)}</code> –{" "}
+                <code>{mm(suggestion.edges.bottomMm)}</code>,置中於可列印範圍
+                (上下各留約 {SUGGEST_SLACK_MM / 2} mm 餘裕)。
+              </p>
+            ) : (
+              <p className={styles.suggestText}>
+                連縮到 {MIN_SCALE_PERCENT}% 都塞不進這個可列印範圍 ——
+                請確認上下邊界是不是填錯了。
+              </p>
+            )}
+          </div>
+        </div>
+
         <p className={styles.hint}>
           此頁走<strong>瀏覽器列印</strong>,不需要本機 print agent。按下列印會跳出
           <strong>系統列印對話框</strong>(瀏覽器無法靜默列印):請選
@@ -257,6 +464,27 @@ export default function PrintPreviewPage() {
               <span className={styles.guideHCenter} />
             </div>
           </div>
+
+          {/* 可列印範圍(#33):畫在**頁面框**上(不是紙張上)—— 這是印表機的硬體
+              限制,不會跟著紙張一起縮放/旋轉。橘色實線 = 印得到的上下界,
+              斜線區 = 印不到的地方。僅螢幕顯示。 */}
+          <div className={styles.pageGuides} aria-hidden>
+            <span
+              className={styles.guideDead}
+              style={{ top: 0, height: `${printableTopMm}mm` }}
+            />
+            <span
+              className={styles.guideDead}
+              style={{ bottom: 0, height: `${printableBottomMm}mm` }}
+            />
+            <span
+              className={styles.guidePrintable}
+              style={{
+                top: `${printableTopMm}mm`,
+                bottom: `${printableBottomMm}mm`,
+              }}
+            />
+          </div>
         </div>
 
         <p className={styles.stageNote}>
@@ -265,7 +493,9 @@ export default function PrintPreviewPage() {
           {rotate
             ? `,已轉 90° 印在直式 ${page.widthMm} × ${page.heightMm} mm 頁面上`
             : ""}
-          。虛線 = 紙張邊界與安全邊界,僅螢幕顯示,不會印出。
+          。綠色虛線 = 紙張邊界與安全邊界;
+          <span className={styles.stageNoteWindow}>橘色實線 = 可列印範圍</span>
+          (斜線區印表機印不到)。皆僅螢幕顯示,不會印出。
         </p>
       </div>
     </div>
@@ -321,6 +551,39 @@ function PrintChecklist() {
         </p>
       </div>
     </details>
+  );
+}
+
+/* ------------------------------------------- 可列印邊界輸入(#33) */
+
+interface MarginInputProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+}
+
+/** 上 / 下不可列印邊界(mm)。存字串,離開輸入框才正規化(理由同縮放輸入框)。 */
+function MarginInput({ id, label, value, onChange, onBlur }: MarginInputProps) {
+  return (
+    <div className={styles.marginField}>
+      <label className={styles.marginLabel} htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        className={styles.nudgeInput}
+        type="number"
+        min={0}
+        max={MAX_MARGIN_MM}
+        step={0.5}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+      />
+      <span className={styles.marginUnit}>mm</span>
+    </div>
   );
 }
 
