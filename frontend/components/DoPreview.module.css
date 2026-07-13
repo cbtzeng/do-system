@@ -176,6 +176,10 @@
   gap: 1em;
   margin-top: auto;
   padding-top: 0.7em;
+  /* 把「承運車行/簽章」整塊往上收 50 (1/180 吋) = 7.06mm。
+     sheet 字級為 1.8cqw、寬 215.9mm → 1em = 3.886mm,故 7.06mm ≈ 1.82em。
+     用意:縮放到 93% 時底部不會被紙張裁掉。 */
+  margin-bottom: 1.82em;
 }
 
 .mCarrier {
@@ -217,13 +221,15 @@
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.45em;
   padding: 0.6em 0.35em;
   border-left: 1px solid var(--ink);
-  letter-spacing: 0.12em;
-  font-size: 0.82em;
-  color: var(--text-muted);
-  background: #faf9f4;
+  letter-spacing: 0.1em;
+  /* 點陣機列印:灰字會被抖動成網點而糊掉 → 用純黑 + 加粗 + 放大。 */
+  font-size: 0.95em;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
 }
 
 .mCopies span {
