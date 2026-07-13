@@ -164,14 +164,11 @@ function round3(n: number): number {
 // 螢幕上,對位就不必燒紙。
 //
 // 座標系:一律以**頁面**(@page 宣告的那張紙)左上角為原點,單位 mm。
-//   - 縮放以紙張中心為原點 → 內容上緣 = (H − H·s)/2,再加上 Y 微調。
+//   - 縮放以紙張中心為原點 → 內容上緣 = (H − H·s)/2,再加上「有效位移」。
 //   - 旋轉 90° 時走紙方向換成長邊 → H = 215.9mm(見 pageSizeMm)。
 //
-// 模型註記:.shift(微調 translate)在 DOM 上是 .paper(縮放 transform)的子層,
-// 因此瀏覽器實際渲染的紙上位移是 s·offset(且旋轉時 X/Y 軸互換)。本讀數採用的是
-// **標稱模型**(位移即 offset),與 UI 的縮放/微調語意一致;兩者在 s≠100% 時會有
-// (1−s)·offset 的差(90% + Y=40 約 0.56mm)。要完全一致必須改 transform 的疊法,
-// 那會動到列印輸出,故不在本次範圍內。
+// ⚠️ 讀數必須模擬 **DOM 真正的行為**,不能照 UI 的名目值算 —— 差一點就白燒一張紙。
+// 見下方 pageOffsetMm 的推導。
 
 /** 內容在頁面上的落點(mm,自頁面左上角起算)。 */
 export interface ContentEdges {
@@ -205,14 +202,65 @@ export interface ContentEdgesInput {
   rotate: boolean;
 }
 
+/** 微調在**頁面**上造成的有效位移(mm)。 */
+export interface PageOffsetMm {
+  /** 頁面水平位移(+ = 往右)。 */
+  dxMm: number;
+  /** 頁面垂直位移(+ = 往下)—— 即**走紙方向**。 */
+  dyMm: number;
+}
+
+/**
+ * 把 X/Y 微調換算成**頁面上真正的位移**(mm)。這裡有兩個反直覺的地方,都是
+ * 從實際的 CSS 疊法推出來的(見 page.module.css / sheetTransform),不是名目值:
+ *
+ * 【1】縮放會乘進位移 —— 位移是 s·offset,不是 offset。
+ *   DOM 是 .paper(transform: … scale(s))> .shift(transform: translate(x, y))。
+ *   CSS transform 會沿著父子鏈相乘:子層的 translate 是在**父層的座標系**裡表達的,
+ *   所以會被父層的 scale 一起縮。90% 時打 Y=40(名目 5.64mm),紙上只走 5.08mm。
+ *
+ * 【2】旋轉 90° 時 X/Y 軸互換(且 Y 還會變號)。
+ *   .paper 的 transform 是 translate(-38.1mm, 38.1mm) rotate(90deg) scale(s),
+ *   而 CSS 的 rotate(90deg) 在 y 軸朝下的座標系裡矩陣是 [0 -1; 1 0],
+ *   也就是把向量 (u, v) 映成 (−v, u)。子層的 translate(x, y) 先被 scale 縮成
+ *   s·(x, y),再被這個旋轉映成 **s·(−y, x)**。於是:
+ *       頁面垂直(走紙方向)位移 = +s·xMm   ← 旋轉時是 **X** 微調在推走紙方向!
+ *       頁面水平位移           = −s·yMm   ← Y 微調變成左右移,而且方向相反。
+ *
+ * 不要「順手簡化」成 offset 或把軸換回來 —— 那會讓讀數與紙上不一致,
+ * 這個功能就白做了(它存在的意義就是取代試印)。
+ */
+export function pageOffsetMm(
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+  rotate: boolean,
+): PageOffsetMm {
+  const s = clampScalePercent(scale) / 100;
+  const { xMm, yMm } = offsetToMm(offsetX, offsetY);
+  return rotate
+    ? { dxMm: -s * yMm, dyMm: s * xMm }
+    : { dxMm: s * xMm, dyMm: s * yMm };
+}
+
+/**
+ * 走紙方向(頁面垂直)是由哪一個微調在推?
+ * 不旋轉 → Y;旋轉 90° → X(見 pageOffsetMm 的推導)。
+ * 「自動建議」要解的就是這一軸。
+ */
+export function feedAxis(rotate: boolean): "x" | "y" {
+  return rotate ? "x" : "y";
+}
+
 /**
  * 算出目前設定下,內容會落在頁面的哪個範圍(mm,自頁面左上角起算)。
  *
  *   內容高度 = H × s
- *   上緣     = (H − H·s) / 2 + yMm     ← 縮放以中心為原點,故上下各留 (H − H·s)/2
+ *   上緣     = (H − H·s) / 2 + dy     ← 縮放以中心為原點,故上下各留 (H − H·s)/2
  *   下緣     = 上緣 + H × s
  *
- * 水平同理,把 H 換成頁寬 W、yMm 換成 xMm。
+ * 水平同理,把 H 換成頁寬 W、dy 換成 dx。
+ * dx / dy 是**有效位移**(已含縮放與旋轉的軸互換),見 pageOffsetMm。
  */
 export function contentEdgesMm({
   scale,
@@ -222,12 +270,12 @@ export function contentEdgesMm({
 }: ContentEdgesInput): ContentEdges {
   const { widthMm: pageWidthMm, heightMm: pageHeightMm } = pageSizeMm(rotate);
   const s = clampScalePercent(scale) / 100;
-  const { xMm, yMm } = offsetToMm(offsetX, offsetY);
+  const { dxMm, dyMm } = pageOffsetMm(scale, offsetX, offsetY, rotate);
 
   const heightMm = pageHeightMm * s;
   const widthMm = pageWidthMm * s;
-  const topMm = (pageHeightMm - heightMm) / 2 + yMm;
-  const leftMm = (pageWidthMm - widthMm) / 2 + xMm;
+  const topMm = (pageHeightMm - heightMm) / 2 + dyMm;
+  const leftMm = (pageWidthMm - widthMm) / 2 + dxMm;
 
   return {
     pageWidthMm,
@@ -321,9 +369,13 @@ export const SUGGEST_SLACK_MM = 4;
 export interface FitSuggestion {
   /** 建議縮放(%,整數)。 */
   scalePercent: number;
-  /** 建議 Y 微調(1/180 吋,整數 —— 微調輸入框只吃整數步進)。 */
+  /** 建議 X 微調(1/60 吋,整數)。 */
+  offsetX: number;
+  /** 建議 Y 微調(1/180 吋,整數)。 */
   offsetY: number;
-  /** 套用之後的落點(已用四捨五入後的 offsetY 重算,螢幕顯示什麼就是什麼)。 */
+  /** 這次是調哪一軸把內容推進可列印範圍的(旋轉時是 X,見 feedAxis)。 */
+  axis: "x" | "y";
+  /** 套用之後的落點(已用四捨五入後的整數微調重算 —— 螢幕顯示什麼,套用就是什麼)。 */
   edges: ContentEdges;
   /** 套用之後的檢查結果。 */
   fit: FitCheck;
@@ -334,16 +386,28 @@ export interface FitSuggestion {
   fits: boolean;
 }
 
+/** 目前的微調值(自動建議只動走紙方向那一軸,另一軸原封不動帶回)。 */
+export interface CurrentOffsets {
+  offsetX?: number;
+  offsetY?: number;
+}
+
 /**
- * 給定可列印範圍,算一組「塞得進去」的縮放 + Y 微調:
+ * 給定可列印範圍,算一組「塞得進去」的縮放 + 走紙方向微調:
  *   1) 取 ≤ 100% 的最大縮放,使 內容高度 ≤ 可列印高度 − 4mm 餘裕(整數 %,無條件捨去)。
- *   2) 把內容置中於可列印範圍 → 反解 Y 微調,再四捨五入成整數 1/180 吋。
- * X 不動:水平方向沒有硬體邊界問題,亂動反而會把使用者對好的左右位置弄掉。
+ *   2) 把內容置中於可列印範圍 → 反解走紙方向的微調,再四捨五入成整數步進。
+ *
+ * 反解時要**除以 s**:上緣 = (H − H·s)/2 + s·offsetMm(位移會被縮放乘進去,
+ * 見 pageOffsetMm),所以 offsetMm = (目標上緣 − 基準上緣) / s。忘了除,建議值
+ * 會系統性地不夠(90% 時差約 10%),那就又要試印了。
+ *
+ * 只動走紙方向那一軸(不旋轉 → Y;旋轉 90° → X):另一軸是左右位置,沒有硬體
+ * 邊界問題,亂動反而會把使用者已經對好的左右位移弄掉。
  */
 export function suggestFit(
   window: PrintableWindow,
   rotate: boolean,
-  offsetX = 0,
+  current: CurrentOffsets = {},
 ): FitSuggestion {
   const { heightMm: pageHeightMm } = pageSizeMm(rotate);
   const printableTopMm = window.topMm;
@@ -355,19 +419,24 @@ export function suggestFit(
   const rawPercent = Math.floor((usableMm / pageHeightMm) * 100);
   const scalePercent = clampScalePercent(Math.min(DEFAULT_SCALE_PERCENT, rawPercent));
 
-  // 2) 內容置中於可列印範圍 → 反解 Y。
-  //    上緣 = (H − H·s)/2 + yMm,而目標上緣 = 可列印上緣 + (可列印高 − 內容高)/2。
+  // 2) 內容置中於可列印範圍 → 反解走紙方向的微調(記得除以 s)。
   const s = scalePercent / 100;
   const contentHeightMm = pageHeightMm * s;
   const baseTopMm = (pageHeightMm - contentHeightMm) / 2;
   const targetTopMm = printableTopMm + (printableHeightMm - contentHeightMm) / 2;
-  const offsetY = Math.round(
-    ((targetTopMm - baseTopMm) / MM_PER_INCH) * Y_UNITS_PER_INCH,
-  );
+  const neededMm = (targetTopMm - baseTopMm) / s;
+
+  // 旋轉時走紙方向是 X(1/60 吋);不旋轉時是 Y(1/180 吋)。
+  const axis = feedAxis(rotate);
+  const units = axis === "x" ? X_UNITS_PER_INCH : Y_UNITS_PER_INCH;
+  const steps = Math.round((neededMm / MM_PER_INCH) * units);
+
+  const offsetX = axis === "x" ? steps : (current.offsetX ?? 0);
+  const offsetY = axis === "y" ? steps : (current.offsetY ?? 0);
 
   const edges = contentEdgesMm({ scale: scalePercent, offsetX, offsetY, rotate });
   const fit = checkPrintableFit(edges, window);
-  return { scalePercent, offsetY, edges, fit, fits: fit.ok };
+  return { scalePercent, offsetX, offsetY, axis, edges, fit, fits: fit.ok };
 }
 
 /* -------------------------------------------------- localStorage 交握 */

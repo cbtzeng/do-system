@@ -25,6 +25,7 @@ import {
   clampMarginMm,
   clampScalePercent,
   contentEdgesMm,
+  feedAxis,
   loadPrintPreviewForm,
   loadPrintSettings,
   offsetToMm,
@@ -163,15 +164,20 @@ export default function PrintPreviewPage() {
   );
 
   // 「自動建議」會給的那組值(先算好顯示,按了才套用)。
+  // 只動走紙方向那一軸(旋轉時是 X),另一軸帶回使用者目前的值。
   const suggestion = useMemo(
-    () => suggestFit(printWindow, rotate, offsetX),
-    [printWindow, rotate, offsetX],
+    () => suggestFit(printWindow, rotate, { offsetX, offsetY }),
+    [printWindow, rotate, offsetX, offsetY],
   );
 
   const applySuggestion = () => {
     setScaleText(String(suggestion.scalePercent));
+    setOffsetX(suggestion.offsetX);
     setOffsetY(suggestion.offsetY);
   };
+
+  // 走紙方向(上下)是由哪一個微調在推?旋轉 90° 時 X/Y 會互換(見 pageOffsetMm)。
+  const feedLabel = feedAxis(rotate) === "x" ? "X" : "Y";
 
   if (state.kind === "loading") {
     return (
@@ -355,6 +361,12 @@ export default function PrintPreviewPage() {
                 <code>{mm(fit.printableBottomMm)}</code>(高{" "}
                 {mm(fit.printableHeightMm)})
               </p>
+              {rotate && (
+                <p className={styles.axisNote}>
+                  ⚠️ 已旋轉 90°:單子跟著轉,<strong>X 微調</strong>
+                  才是上下移動(Y 變成左右移)。
+                </p>
+              )}
             </div>
           </div>
 
@@ -371,18 +383,18 @@ export default function PrintPreviewPage() {
               {fit.topClipMm > 0 && (
                 <>
                   　<strong>上緣會被裁掉 {mm(fit.topClipMm)}</strong> —
-                  請降低縮放或加大 Y。
+                  請降低縮放或加大 {feedLabel}。
                 </>
               )}
               {fit.bottomClipMm > 0 && (
                 <>
                   　<strong>下緣會被裁掉 {mm(fit.bottomClipMm)}</strong> —
-                  請降低縮放或減小 Y。
+                  請降低縮放或減小 {feedLabel}。
                 </>
               )}
               {fit.topClipMm > 0 && fit.bottomClipMm > 0 && (
                 <>
-                  　內容比可列印範圍還高,單靠移動 Y 救不回來 ——
+                  　內容比可列印範圍還高,單靠移動 {feedLabel} 救不回來 ——
                   <strong>一定要縮小</strong>。
                 </>
               )}
@@ -402,8 +414,12 @@ export default function PrintPreviewPage() {
             {suggestion.fits ? (
               <p className={styles.suggestText}>
                 建議 <strong>縮放 {suggestion.scalePercent}%</strong> +{" "}
-                <strong>Y {suggestion.offsetY}</strong> → 內容落在{" "}
-                <code>{mm(suggestion.edges.topMm)}</code> –{" "}
+                <strong>
+                  {suggestion.axis === "x"
+                    ? `X ${suggestion.offsetX}`
+                    : `Y ${suggestion.offsetY}`}
+                </strong>{" "}
+                → 內容落在 <code>{mm(suggestion.edges.topMm)}</code> –{" "}
                 <code>{mm(suggestion.edges.bottomMm)}</code>,置中於可列印範圍
                 (上下各留約 {SUGGEST_SLACK_MM / 2} mm 餘裕)。
               </p>
