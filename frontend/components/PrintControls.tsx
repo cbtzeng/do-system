@@ -3,6 +3,7 @@
 import { useEffect, useState, type RefObject } from "react";
 import type { DoForm } from "../lib/contract";
 import { getPrinters, printImage } from "../lib/printClient";
+import { savePrintPreviewForm } from "../lib/printLayout";
 import { recordPrint, saveOrder, upsertMasters } from "../lib/orders";
 import { isSupabaseConfigured } from "../lib/supabase";
 import styles from "./PrintControls.module.css";
@@ -68,6 +69,25 @@ export default function PrintControls({
   function handleY(e: React.ChangeEvent<HTMLInputElement>) {
     const y = Number(e.target.value);
     onOffsetChange?.(form.offsetX, y);
+  }
+
+  /**
+   * (#K)第二條列印路徑:把目前表單寫進 localStorage,在新分頁開 /print-preview,
+   * 以中一刀實體尺寸呈現並用瀏覽器直印(不需 agent)。不影響上面的 agent 列印流程。
+   */
+  function handleOpenPreviewTab() {
+    try {
+      savePrintPreviewForm(form);
+    } catch (err: unknown) {
+      setStatus({
+        kind: "error",
+        message: `無法寫入列印預覽資料: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      });
+      return;
+    }
+    window.open("/print-preview", "_blank", "noopener");
   }
 
   async function handlePrint() {
@@ -202,6 +222,19 @@ export default function PrintControls({
       >
         {status.kind === "printing" ? "列印中…" : "🖨  列印"}
       </button>
+
+      {/* 第二條路徑(#K):新分頁實體尺寸預覽 → 瀏覽器直印(免 agent)。 */}
+      <button
+        type="button"
+        className={styles.previewBtn}
+        onClick={handleOpenPreviewTab}
+      >
+        ⧉  在新分頁開啟列印預覽
+      </button>
+      <p className={styles.previewHint}>
+        新分頁以中一刀實際尺寸(215.9 × 139.7 mm)呈現,用瀏覽器列印(需 LQ-310
+        原廠驅動),不需要本機 agent;不會存檔。
+      </p>
 
       {saveNote && (
         <p role="status" className={styles.status}>
