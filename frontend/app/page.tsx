@@ -70,7 +70,7 @@ function Editor() {
           <DoFormEditor form={form} onChange={setForm} />
         </section>
 
-        <section className={styles.section}>
+        <section className={styles.previewSection}>
           <h2 className={styles.sectionTitle}>預覽 / 列印</h2>
           <PrintPreviewPanel form={form} />
         </section>

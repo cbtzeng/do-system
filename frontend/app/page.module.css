@@ -63,6 +63,13 @@
   padding: 22px;
 }
 
+/* 預覽/列印區:不套卡片外框,避免與面板自身卡片重疊成兩層框。 */
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .sectionTitle {
   font-size: 12px;
   font-weight: 600;
