@@ -1,0 +1,734 @@
+/* 內嵌列印預覽面板(#L)。螢幕:工具列 + 實體尺寸紙張 + 輔助線;
+   列印:只印 portal 到 body 下的 .printRoot 那張紙(見底部列印隔離段)。
+   注意 @page 規則由 PrintPreviewPanel.tsx 動態注入 <style>(離開即移除)。 */
+
+.panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+/* --------------------------------------------------------- 螢幕工具列 */
+
+.toolbar {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.toolbarMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.printBtn {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  border-radius: var(--radius-md);
+  padding: 11px 20px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  transition: background 0.12s ease, transform 0.04s ease;
+}
+
+.printBtn:hover {
+  background: var(--brand-hover);
+}
+
+.printBtn:active {
+  background: var(--brand-active);
+  transform: translateY(1px);
+}
+
+.nudges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex: 1;
+}
+
+.nudge {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nudgeLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.nudgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nudgeInput {
+  width: 72px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stepBtn {
+  width: 28px;
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--sage-50);
+  color: var(--brand-active);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepBtn:hover {
+  background: var(--sage-100);
+}
+
+.nudgeMm {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+}
+
+.resetBtn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.resetBtn:hover {
+  background: var(--sage-50);
+  color: var(--brand-active);
+}
+
+/* --------------------------------------- 列印方向 / 縮放(#32) */
+
+.orientRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switchInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switchTrack {
+  flex: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--sage-100);
+  border: 1px solid var(--border-strong);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.switchTrack::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease;
+}
+
+.switchInput:checked + .switchTrack {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.switchInput:checked + .switchTrack::after {
+  transform: translateX(18px);
+}
+
+.switchInput:focus-visible + .switchTrack {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.switchNote {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.orientState {
+  flex: 1;
+  min-width: 200px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.orientState code {
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------- 落點讀數 / 可列印範圍 / 自動建議(#33) */
+
+.fitPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.fitRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 24px;
+}
+
+.readout {
+  flex: 1;
+  min-width: 280px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.readoutItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.readoutItem dt {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.readoutItem dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.readoutBad {
+  color: var(--danger);
+}
+
+.windowInputs {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 190px;
+}
+
+.windowTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.windowNote {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.windowRow {
+  display: flex;
+  gap: 10px;
+}
+
+.marginField {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.marginLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.marginUnit {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.windowRange {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.windowRange code {
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+}
+
+.axisNote {
+  max-width: 200px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #7a4a12;
+}
+
+.axisNote strong {
+  color: #a3390f;
+}
+
+.fitStatus {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.7;
+  border: 1px solid transparent;
+}
+
+.fitOk {
+  background: var(--sage-50);
+  border-color: var(--border-strong);
+  color: var(--brand-active);
+  font-weight: 600;
+}
+
+.fitWarn {
+  background: #fdf3e7;
+  border-color: #e9c48a;
+  color: #7a4a12;
+}
+
+.fitWarn strong {
+  color: #a3390f;
+}
+
+.suggestRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.suggestBtn {
+  flex: none;
+  border: 1px solid var(--brand);
+  background: var(--surface);
+  color: var(--brand-active);
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggestBtn:hover:not(:disabled) {
+  background: var(--sage-50);
+}
+
+.suggestBtn:active:not(:disabled) {
+  background: var(--sage-100);
+  transform: translateY(1px);
+}
+
+.suggestBtn:disabled {
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.suggestText {
+  flex: 1;
+  min-width: 240px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.suggestText strong {
+  color: var(--brand-active);
+}
+
+.suggestText code {
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--brand-active);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------- 列印設定指引(#32) */
+
+.checklist {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.checklistSummary {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-active);
+  list-style: none;
+}
+
+.checklistSummary::-webkit-details-marker {
+  display: none;
+}
+
+.checklistSummary::before {
+  content: "▸ ";
+  color: var(--text-faint);
+}
+
+.checklist[open] .checklistSummary::before {
+  content: "▾ ";
+}
+
+.checklistSummary:hover {
+  background: var(--sage-50);
+}
+
+.checklistBody {
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.checklistSteps {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  list-style: decimal;
+}
+
+.checklistSteps strong {
+  color: var(--text);
+}
+
+.checklistSteps code,
+.checklistWhy code {
+  font-family: var(--font-geist-mono), monospace;
+  background: var(--sage-50);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--brand-active);
+}
+
+.checklistWhy {
+  margin-top: 12px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-faint);
+  background: var(--sage-50);
+  border-radius: var(--radius-sm);
+}
+
+.hint {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  background: var(--sage-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.hint code {
+  font-family: var(--font-geist-mono), monospace;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.hint strong {
+  color: var(--brand-active);
+}
+
+/* ------------------------------------------------------- 紙張(實體尺寸) */
+
+.stage {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/* 頁面框:@page 宣告的紙張。橫式(預設)= 215.9 × 139.7mm;
+   旋轉時換成直式 139.7 × 215.9mm(見 .sheetPortrait)。
+
+   overflow: hidden 是必要的:旋轉時紙張 layout box 仍是 215.9mm 寬,比直式頁面
+   (139.7mm)寬,這個水平溢出會觸發 Chrome 列印的 shrink-to-fit。把它裁掉,
+   真正要印的是 transform 之後的視覺框,正好等於頁面,不會被切到。 */
+.sheet {
+  position: relative;
+  flex: none;
+  width: 215.9mm;
+  height: 139.7mm;
+  overflow: hidden;
+  background: #fff;
+}
+
+.sheetPortrait {
+  width: 139.7mm;
+  height: 215.9mm;
+}
+
+/* 中一刀送貨單:215.9 × 139.7 mm。DoPreview 以 cqw 縮放 → 放進此容器即 1:1 實體比例。
+   layout box 一律貼頁面框左上角(top/left: 0),旋轉/縮放全走 transform —— transform
+   不影響 layout,故不會因 layout box 溢出下緣而多印一頁,cqw 仍以 215.9mm 計算。 */
+.paper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  width: 215.9mm;
+  height: 139.7mm;
+  overflow: hidden;
+  background: #fff;
+  transform-origin: center center;
+  box-shadow: 0 2px 6px rgba(16, 32, 24, 0.1), 0 14px 40px rgba(16, 32, 24, 0.08);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* X/Y 微調:以 mm 平移整張單(列印時即真實紙上位移)。 */
+.shift {
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+}
+
+/* ----------------------------------------------- 輔助線(僅螢幕顯示) */
+
+.guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.guideEdge {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(31, 107, 67, 0.55);
+}
+
+.guideSafe {
+  position: absolute;
+  inset: 5mm;
+  border: 1px dotted rgba(31, 107, 67, 0.25);
+}
+
+.guideVCenter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px dashed rgba(31, 107, 67, 0.18);
+}
+
+.guideHCenter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed rgba(31, 107, 67, 0.18);
+}
+
+/* ------------------------- 可列印範圍輔助線(#33,僅螢幕顯示) */
+
+.pageGuides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.guideDead {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(200, 90, 20, 0.13),
+    rgba(200, 90, 20, 0.13) 3px,
+    rgba(200, 90, 20, 0) 3px,
+    rgba(200, 90, 20, 0) 7px
+  );
+}
+
+.guidePrintable {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px solid rgba(196, 88, 20, 0.9);
+  border-bottom: 1.5px solid rgba(196, 88, 20, 0.9);
+}
+
+.stageNote {
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.stageNoteWindow {
+  color: #a3390f;
+  font-weight: 600;
+}
+
+/* =========================================================== 列印目標 */
+/* portal 到 <body> 下的 .printRoot,只放要印的那張紙。螢幕上隱藏。 */
+
+.printStage {
+  display: block;
+}
+
+/* 螢幕:列印層完全不顯示(display:none,不佔版面)。 */
+:global(.printRoot) {
+  display: none;
+}
+
+/* =========================================================== 列印隔離 */
+
+@media print {
+  /* 只留列印層,其餘 body 子節點(導覽列、編輯區、工具列…)全部隱藏。
+     用 display:none(非 visibility)—— 被隱藏者不佔版面,才不會多印一張空白頁。 */
+  :global(body > *:not(.printRoot)) {
+    display: none !important;
+  }
+
+  :global(.printRoot) {
+    display: block !important;
+  }
+
+  :global(html),
+  :global(body) {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .printStage {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 只印紙張本身,零外距。頁面框對齊 @page:
+     預設 215.9 × 139.7mm(橫式);旋轉時 139.7 × 215.9mm(直式)。 */
+  .sheet {
+    width: 215.9mm !important;
+    height: 139.7mm !important;
+    margin: 0 !important;
+    /* 必須維持 hidden:見上面的 shrink-to-fit 說明。 */
+    overflow: hidden !important;
+    background: #fff !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sheetPortrait {
+    width: 139.7mm !important;
+    height: 215.9mm !important;
+  }
+
+  /* 送貨單本身尺寸固定;旋轉/縮放由 inline transform 帶入(以中心為原點)。 */
+  .paper {
+    width: 215.9mm !important;
+    height: 139.7mm !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .paper * {
+    box-shadow: none !important;
+  }
+}

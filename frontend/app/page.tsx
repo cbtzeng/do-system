@@ -1,11 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DoForm } from "../lib/contract";
 import DoFormEditor from "../components/DoFormEditor";
-import DoPreview from "../components/DoPreview";
-import PrintControls from "../components/PrintControls";
+import PrintPreviewPanel from "../components/PrintPreviewPanel";
 import { emptyDoForm } from "../components/doForm";
 import { getOrder, mapRowToForm } from "../lib/orders";
 import { isSupabaseConfigured } from "../lib/supabase";
@@ -21,9 +20,6 @@ function Editor() {
 
   // 重開既有單(?id=)時的載入狀態/錯誤提示。
   const [loadNote, setLoadNote] = useState<string | null>(null);
-
-  // 預覽根節點:圖形列印(#A)以 html-to-image 擷取此節點成 PNG。
-  const previewRef = useRef<HTMLDivElement>(null);
 
   // 網址帶 ?id= → 從 Supabase 載回該單,設 orderId 使後續列印 update 同一筆。
   const searchParams = useSearchParams();
@@ -59,10 +55,6 @@ function Editor() {
     };
   }, [idParam]);
 
-  // PrintControls 的 X/Y 微調寫回同一份 form,讓預覽與列印一致。
-  const handleOffsetChange = (offsetX: number, offsetY: number) =>
-    setForm((prev) => ({ ...prev, offsetX, offsetY }));
-
   return (
     <div className={styles.page}>
       <h1 className={styles.heading}>送貨單編輯</h1>
@@ -79,15 +71,8 @@ function Editor() {
         </section>
 
         <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>預覽</h2>
-          <DoPreview form={form} ref={previewRef} />
-          <PrintControls
-            form={form}
-            previewRef={previewRef}
-            onOffsetChange={handleOffsetChange}
-            orderId={orderId}
-            onOrderIdChange={setOrderId}
-          />
+          <h2 className={styles.sectionTitle}>預覽 / 列印</h2>
+          <PrintPreviewPanel form={form} />
         </section>
       </div>
     </div>
