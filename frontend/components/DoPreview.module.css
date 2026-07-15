@@ -128,7 +128,7 @@
 .mTable th,
 .mTable td {
   border: 1px solid var(--ink);
-  padding: 0.22em 0.4em;
+  padding: 0.3em 0.4em;
   vertical-align: top;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -143,7 +143,7 @@
 }
 
 .mPadRow td {
-  height: 1.5em;
+  height: 1.9em;
 }
 
 .mcName {
@@ -172,34 +172,41 @@
 .mBottom {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 1em;
+  gap: 1.4em;
   margin-top: auto;
   padding-top: 0.7em;
   /* 把「承運車行/簽章」整塊往上收 50 (1/180 吋) = 7.06mm。
      sheet 字級為 1.8cqw、寬 215.9mm → 1em = 3.886mm,故 7.06mm ≈ 1.82em。
      用意:縮放到 93% 時底部不會被紙張裁掉。 */
   margin-bottom: 1.82em;
+  /* 給簽章區更多書寫高度。 */
+  min-height: 3em;
 }
 
+/* 承運車行 / 車號:變窄,靠左直排。 */
 .mCarrier {
   display: flex;
   flex-direction: column;
-  gap: 0.35em;
-  min-width: 45%;
+  gap: 0.45em;
+  flex: 0 0 30%;
+  min-width: 0;
 }
 
 .mCarrierRow {
   display: flex;
   align-items: baseline;
-  min-height: 1.3em;
+  min-height: 1.4em;
 }
 
+/* 司機簽章 / 客戶簽收:變寬、並排、簽名往下(上方留書寫空間)。 */
 .mSigns {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-  align-items: flex-start;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 2em;
+  padding-bottom: 0.5em;
 }
 
 .mSign {
@@ -210,7 +217,7 @@
 
 .mSignLine {
   display: inline-block;
-  width: 6em;
+  width: 11em;
   border-bottom: 1px solid var(--ink);
   margin-left: 0.2em;
 }
