@@ -71,7 +71,7 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
             <span className={styles.mVal}>{header.customerName}</span>
           </div>
           <div className={styles.mCustRow}>
-            <span className={styles.mLabel}>住址：</span>
+            <span className={styles.mLabel}>地址：</span>
             <span className={styles.mVal}>{header.address}</span>
           </div>
           <div className={styles.mCustRow}>
