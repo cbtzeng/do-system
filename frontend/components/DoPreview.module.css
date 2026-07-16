@@ -128,7 +128,7 @@
 .mTable th,
 .mTable td {
   border: 1px solid var(--ink);
-  padding: 0.3em 0.4em;
+  padding: 0.45em 0.4em;
   vertical-align: top;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -143,7 +143,7 @@
 }
 
 .mPadRow td {
-  height: 1.9em;
+  height: 2.85em;
 }
 
 .mcName {
@@ -188,7 +188,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.45em;
-  flex: 0 0 30%;
+  flex: 0 0 26%;
   min-width: 0;
 }
 
@@ -198,14 +198,14 @@
   min-height: 1.4em;
 }
 
-/* 司機簽章 / 客戶簽收:變寬、並排、簽名往下(上方留書寫空間)。 */
+/* 司機簽章 / 客戶簽收:並排、置中於中間區、簽名往下(上方留書寫空間)。 */
 .mSigns {
   flex: 1;
   display: flex;
   flex-direction: row;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: flex-end;
-  gap: 2em;
+  gap: 1.4em;
   padding-bottom: 0.5em;
 }
 
@@ -217,7 +217,7 @@
 
 .mSignLine {
   display: inline-block;
-  width: 11em;
+  width: 8.5em;
   border-bottom: 1px solid var(--ink);
   margin-left: 0.2em;
 }
@@ -226,16 +226,18 @@
 /* 三聯標示:底部、上下排(三行橫書堆疊),靠右對齊。
    移到底部後,原本右側直書條的寬度全部讓給品項表 → 表格更寬更大。 */
 .mCopies {
+  flex: 0 0 auto;
+  align-self: flex-end;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 0.15em;
-  margin-top: 0.5em;
   letter-spacing: 0.06em;
   /* 點陣機列印灰字會糊 → 純黑加粗。 */
-  font-size: 0.85em;
+  font-size: 0.82em;
   font-weight: 700;
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .mCopies span {
