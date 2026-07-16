@@ -58,8 +58,10 @@
 .mCust {
   display: flex;
   flex-direction: column;
-  gap: 0.3em;
+  gap: 0.35em;
   padding-top: 0.3em;
+  /* 客戶名稱 / 地址 / 電話 字放大,較清楚。 */
+  font-size: 1.15em;
 }
 
 .mCustRow {
@@ -124,15 +126,22 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  font-size: 1.08em; /* 品項字放大一點,更清楚 */
 }
 
 .mTable th,
 .mTable td {
   border: 1px solid var(--ink);
-  padding: 0.45em 0.4em;
+  padding: 0.15em 0.4em; /* 上下少留空白,字更飽滿 */
   vertical-align: top;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 所有品項列(含資料列與空白列)統一高度,避免第一列比空白列矮。
+   高度約為原本的 0.85 倍,讓表格下方留一點空間、不壓到底部文字。 */
+.mTable tbody tr {
+  height: 2.3em;
 }
 
 .mTable th {
@@ -143,9 +152,7 @@
   white-space: nowrap;
 }
 
-.mPadRow td {
-  height: 2.85em;
-}
+/* 空白列高度由 .mTable tbody tr 統一控制(見上)。 */
 
 .mcName {
   width: 26%;

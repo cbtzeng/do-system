@@ -42,7 +42,7 @@ function parseNumber(raw: string): number {
 /** metal 版抬頭欄位。 */
 const METAL_HEADER: { key: keyof DoHeader; label: string; placeholder?: string }[] = [
   { key: "customerName", label: "客戶名稱" },
-  { key: "address", label: "住址" },
+  { key: "address", label: "地址" },
   { key: "phone", label: "電話" },
   { key: "orderNo", label: "貨單號碼", placeholder: "002601" },
   { key: "date", label: "日期", placeholder: "115 年 6 月 22 日" },
