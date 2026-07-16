@@ -87,9 +87,7 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
 
         <div className={styles.mCompany}>
           <div>公司電話：{COMPANY.companyPhone}</div>
-          <div>工廠電話：{COMPANY.factoryPhone}</div>
           <div>公司傳真：{COMPANY.companyFax}</div>
-          <div>工廠傳真：{COMPANY.factoryFax}</div>
           <div>
             貨單號碼：
             <span className={styles.mOrderNo}>{header.orderNo}</span>
@@ -158,13 +156,13 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
           </span>
         </div>
       </div>
-      </div>
 
-      {/* 三聯標示(右側直書) */}
+      {/* 三聯標示(底部,上下排) */}
       <div className={styles.mCopies}>
-        <span>第一聯　存根聯（白）</span>
-        <span>第二聯　會計聯（黃）</span>
-        <span>第三聯　客戶聯（紅）</span>
+        <span>① 存根聯（白）</span>
+        <span>② 會計聯（黃）</span>
+        <span>③ 客戶聯（紅）</span>
+      </div>
       </div>
     </div>
   );

@@ -178,7 +178,7 @@
   /* 把「承運車行/簽章」整塊往上收 50 (1/180 吋) = 7.06mm。
      sheet 字級為 1.8cqw、寬 215.9mm → 1em = 3.886mm,故 7.06mm ≈ 1.82em。
      用意:縮放到 93% 時底部不會被紙張裁掉。 */
-  margin-bottom: 1.82em;
+  margin-bottom: 0.3em;
   /* 給簽章區更多書寫高度。 */
   min-height: 3em;
 }
@@ -223,25 +223,23 @@
 }
 
 /* metal 右側三聯直書條 */
+/* 三聯標示:底部、上下排(三行橫書堆疊),靠右對齊。
+   移到底部後,原本右側直書條的寬度全部讓給品項表 → 表格更寬更大。 */
 .mCopies {
   display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: 0.45em;
-  padding: 0.6em 0.35em;
-  border-left: 1px solid var(--ink);
-  letter-spacing: 0.1em;
-  /* 點陣機列印:灰字會被抖動成網點而糊掉 → 用純黑 + 加粗 + 放大。 */
-  font-size: 0.95em;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15em;
+  margin-top: 0.5em;
+  letter-spacing: 0.06em;
+  /* 點陣機列印灰字會糊 → 純黑加粗。 */
+  font-size: 0.85em;
   font-weight: 700;
   color: var(--ink);
-  background: transparent;
 }
 
 .mCopies span {
-  writing-mode: vertical-rl;
-  text-orientation: upright;
+  writing-mode: horizontal-tb;
 }
 
 /* 抬頭 */
