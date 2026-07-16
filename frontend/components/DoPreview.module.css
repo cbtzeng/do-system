@@ -13,7 +13,8 @@
   aspect-ratio: 2159 / 1397;
   font-size: 1.8cqw;
   background: #fffefb;
-  border: 0.12em solid var(--ink);
+  /* 外框實線移除(不印出外框);螢幕上仍有 box-shadow 與列印預覽的虛線邊界示意。 */
+  border: none;
   border-radius: 0.2em;
   box-shadow: var(--shadow);
   color: var(--ink);
