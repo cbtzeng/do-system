@@ -155,13 +155,13 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
             客戶簽收：<span className={styles.mSignLine} />
           </span>
         </div>
-      </div>
 
-      {/* 三聯標示(底部,上下排) */}
-      <div className={styles.mCopies}>
-        <span>① 存根聯（白）</span>
-        <span>② 會計聯（黃）</span>
-        <span>③ 客戶聯（紅）</span>
+        {/* 三聯標示:同一列右側,上下排 */}
+        <div className={styles.mCopies}>
+          <span>① 存根聯（白）</span>
+          <span>② 會計聯（黃）</span>
+          <span>③ 客戶聯（紅）</span>
+        </div>
       </div>
       </div>
     </div>
