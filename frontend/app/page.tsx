@@ -6,7 +6,7 @@ import type { DoForm } from "../lib/contract";
 import DoFormEditor from "../components/DoFormEditor";
 import PrintPreviewPanel from "../components/PrintPreviewPanel";
 import { emptyDoForm } from "../components/doForm";
-import { getOrder, mapRowToForm } from "../lib/orders";
+import { getOrder, mapRowToForm, saveOrder, upsertMasters } from "../lib/orders";
 import { isSupabaseConfigured } from "../lib/supabase";
 import styles from "./page.module.css";
 
@@ -20,6 +20,35 @@ function Editor() {
 
   // 重開既有單(?id=)時的載入狀態/錯誤提示。
   const [loadNote, setLoadNote] = useState<string | null>(null);
+
+  // 存檔狀態:saving = 進行中(禁用按鈕);saveNote = 存檔結果/錯誤提示。
+  const [saving, setSaving] = useState(false);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+
+  // 存檔:無 orderId → insert 新單並回填 id;有 orderId → update 同一筆。
+  // 一併累積客戶/品項主檔(供 autocomplete)。列印前也會呼叫此函式(見 PrintPreviewPanel)。
+  async function handleSave() {
+    if (!isSupabaseConfigured) {
+      setSaveNote("尚未設定 Supabase,無法存檔。");
+      return;
+    }
+    const isUpdate = orderId != null;
+    setSaving(true);
+    setSaveNote("存檔中…");
+    try {
+      const id = await saveOrder(form, orderId ?? undefined);
+      setOrderId(id);
+      await upsertMasters(form);
+      const label = form.header.orderNo?.trim() || (isUpdate ? id : "新單");
+      setSaveNote(isUpdate ? `已更新 #${label}` : `已存檔 #${label}`);
+    } catch (err: unknown) {
+      setSaveNote(
+        `存檔失敗:${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // 網址帶 ?id= → 從 Supabase 載回該單,設 orderId 使後續列印 update 同一筆。
   const searchParams = useSearchParams();
@@ -72,7 +101,12 @@ function Editor() {
 
         <section className={styles.previewSection}>
           <h2 className={styles.sectionTitle}>預覽 / 列印</h2>
-          <PrintPreviewPanel form={form} />
+          <PrintPreviewPanel
+            form={form}
+            onSave={handleSave}
+            saving={saving}
+            saveNote={saveNote ?? undefined}
+          />
         </section>
       </div>
     </div>

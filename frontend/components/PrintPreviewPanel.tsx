@@ -47,9 +47,21 @@ const mm = (v: number) => `${v.toFixed(2)} mm`;
 
 interface PrintPreviewPanelProps {
   form: DoForm;
+  /** 存檔 callback(由首頁 Editor 提供)。未提供時不顯示存檔按鈕、列印前也不存檔
+   *  —— 供 /print-preview 這種無表單持久化的獨立頁沿用。 */
+  onSave?: () => Promise<void>;
+  /** 存檔進行中:禁用存檔按鈕。 */
+  saving?: boolean;
+  /** 存檔結果/錯誤提示。 */
+  saveNote?: string;
 }
 
-export default function PrintPreviewPanel({ form }: PrintPreviewPanelProps) {
+export default function PrintPreviewPanel({
+  form,
+  onSave,
+  saving = false,
+  saveNote,
+}: PrintPreviewPanelProps) {
   // X/Y 微調(對位用):初值取自傳入的表單(僅初始化一次,之後由本面板自行管理,
   // 避免使用者在編輯區打字時把已對好的位移洗掉)。
   const [offsetX, setOffsetX] = useState(() => form.offsetX || 0);
@@ -169,6 +181,15 @@ export default function PrintPreviewPanel({ form }: PrintPreviewPanelProps) {
     setOffsetY(suggestion.offsetY);
   };
 
+  // 列印:若有提供 onSave,先存檔(每次列印都持久化/update),再開系統列印對話框。
+  // 存檔失敗不擋列印 —— 仍照印,錯誤由 saveNote 呈現(onSave 內部已 catch)。
+  const handlePrint = async () => {
+    if (onSave) {
+      await onSave();
+    }
+    window.print();
+  };
+
   // 走紙方向(上下)是由哪一個微調在推?旋轉 90° 時 X/Y 會互換(見 pageOffsetMm)。
   const feedLabel = feedAxis(rotate) === "x" ? "X" : "Y";
 
@@ -194,10 +215,28 @@ export default function PrintPreviewPanel({ form }: PrintPreviewPanelProps) {
           <button
             type="button"
             className={styles.printBtn}
-            onClick={() => window.print()}
+            onClick={handlePrint}
           >
             🖨　用瀏覽器列印
           </button>
+
+          {/* 存檔:僅在父層提供 onSave 時顯示(/print-preview 無表單持久化,故不出現)。 */}
+          {onSave && (
+            <button
+              type="button"
+              className={styles.saveBtn}
+              onClick={onSave}
+              disabled={saving}
+            >
+              💾　{saving ? "存檔中…" : "存檔"}
+            </button>
+          )}
+
+          {onSave && saveNote && (
+            <span className={styles.saveNote} role="status">
+              {saveNote}
+            </span>
+          )}
 
           <div className={styles.nudges}>
             <Nudge

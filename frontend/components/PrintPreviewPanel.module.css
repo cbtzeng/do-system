@@ -56,6 +56,43 @@
   transform: translateY(1px);
 }
 
+/* 存檔:次要按鈕(外框綠、白底),與主要列印按鈕並列。 */
+.saveBtn {
+  border: 1px solid var(--brand);
+  background: var(--surface);
+  color: var(--brand-active);
+  border-radius: var(--radius-md);
+  padding: 11px 18px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: background 0.12s ease, transform 0.04s ease;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: var(--sage-50);
+}
+
+.saveBtn:active:not(:disabled) {
+  background: var(--sage-100);
+  transform: translateY(1px);
+}
+
+.saveBtn:disabled {
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.saveNote {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-active);
+}
+
 .nudges {
   display: flex;
   flex-wrap: wrap;
