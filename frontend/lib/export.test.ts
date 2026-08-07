@@ -24,6 +24,7 @@ function baseOrder(over: Partial<DeliveryOrderRow>): DeliveryOrderRow {
     offset_x: 0,
     offset_y: 0,
     status: "draft",
+    billing_status: "unbilled",
     print_count: 0,
     first_printed_at: null,
     last_printed_at: null,

@@ -23,6 +23,7 @@ export interface DeliveryOrderRow {
   offset_x: number;
   offset_y: number;
   status: string; // 'draft' 等
+  billing_status: string; // 入帳狀態 'unbilled' | 'billed' | 'paid'(見 migration 0002)
   print_count: number;
   first_printed_at: string | null; // timestamptz
   last_printed_at: string | null; // timestamptz
