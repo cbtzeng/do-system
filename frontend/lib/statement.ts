@@ -12,12 +12,60 @@ import * as XLSX from "xlsx";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 import type { DeliveryOrderRow, MetalLine } from "./db-types";
 
+/** 入帳狀態(屬於整筆出貨單):未入帳 / 已請款 / 已收款。 */
+export type BillingStatus = "unbilled" | "billed" | "paid";
+
+/** 預設狀態(舊資料或缺欄位時一律當未入帳)。 */
+export const DEFAULT_BILLING_STATUS: BillingStatus = "unbilled";
+
+/** 三個合法狀態(依畫面顯示順序)。 */
+export const BILLING_STATUSES: readonly BillingStatus[] = [
+  "unbilled",
+  "billed",
+  "paid",
+] as const;
+
+/** 狀態的中文標籤。 */
+export const BILLING_STATUS_LABELS: Record<BillingStatus, string> = {
+  unbilled: "未入帳",
+  billed: "已請款",
+  paid: "已收款",
+};
+
+/** 狀態的 chip 顏色鍵(對應 CSS class:未入帳灰、已請款琥珀、已收款綠)。 */
+export const BILLING_STATUS_TONES: Record<BillingStatus, "grey" | "amber" | "green"> = {
+  unbilled: "grey",
+  billed: "amber",
+  paid: "green",
+};
+
+/** 把任意值正規化成合法 BillingStatus;非法/缺值 → 預設(未入帳)。 */
+export function normalizeBillingStatus(value: unknown): BillingStatus {
+  return value === "billed" || value === "paid" || value === "unbilled"
+    ? value
+    : DEFAULT_BILLING_STATUS;
+}
+
+/** 由選取的對帳列收集其所屬出貨單的 distinct id(保留出現順序)。 */
+export function distinctOrderIds(rows: StatementRow[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    if (!r.sourceOrderId || seen.has(r.sourceOrderId)) continue;
+    seen.add(r.sourceOrderId);
+    out.push(r.sourceOrderId);
+  }
+  return out;
+}
+
 /** 對帳單一列(攤平後)。source* 欄位用於「儲存單價」寫回來源出貨單。 */
 export interface StatementRow {
-  /** 來源出貨單 id(寫回單價用)。 */
+  /** 來源出貨單 id(寫回單價 / 標記狀態用;同一單的列共用)。 */
   sourceOrderId: string;
   /** 該列在來源出貨單 lines 陣列中的索引(寫回單價用)。 */
   sourceLineIndex: number;
+  /** 所屬出貨單的入帳狀態(同一單的列相同)。 */
+  billingStatus: BillingStatus;
   /** 客戶名稱(全部客戶時用來分工作表)。 */
   customerName: string;
   /** ISO 日期(YYYY-MM-DD);可能為 null。 */
@@ -92,6 +140,7 @@ export function flattenToStatementRows(
       out.push({
         sourceOrderId: order.id,
         sourceLineIndex: index,
+        billingStatus: normalizeBillingStatus(order.billing_status),
         customerName: order.customer_name ?? "",
         isoDate: order.order_date ?? null,
         name: line.name ?? "",
@@ -318,16 +367,36 @@ export async function fetchCustomerNames(): Promise<string[]> {
 }
 
 /**
+ * 批次更新出貨單的入帳狀態(未入帳/已請款/已收款)。
+ * `update delivery_orders set billing_status=... where id in (...)`。
+ * orderIds 為空則不打 DB。
+ */
+export async function updateBillingStatus(
+  orderIds: string[],
+  status: BillingStatus,
+): Promise<void> {
+  const ids = Array.from(new Set(orderIds.filter(Boolean)));
+  if (ids.length === 0) return;
+  const { error } = await getSupabase()
+    .from("delivery_orders")
+    .update({ billing_status: status })
+    .in("id", ids);
+  if (error) throw error;
+}
+
+/**
  * 把對帳列上編修過的單價寫回來源出貨單的 lines jsonb。
  * 依 sourceOrderId 分組,對每張單讀回現有 lines、更新對應索引的 price,再整包 update。
+ * **已收款(paid)的單會被跳過**,不覆寫其單價。
  * 回傳實際更新的出貨單張數。
  */
 export async function savePrices(rows: StatementRow[]): Promise<number> {
   const supabase = getSupabase();
 
-  // 依出貨單分組:orderId → (lineIndex → price)。
+  // 依出貨單分組:orderId → (lineIndex → price)。已收款的單直接跳過。
   const byOrder = new Map<string, Map<number, number>>();
   for (const r of rows) {
+    if (r.billingStatus === "paid") continue; // 已收款鎖單價:不寫回
     let m = byOrder.get(r.sourceOrderId);
     if (!m) {
       m = new Map();
