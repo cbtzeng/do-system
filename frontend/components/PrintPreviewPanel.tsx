@@ -13,10 +13,15 @@
 // 兩份共用同一組 form + 設定,確保所見即所印。
 //
 // 座標/縮放/旋轉數學一律沿用 lib/printLayout(不重寫)。
+//
+// 分頁:品項太多或換行把列撐高時,一張中一刀放不下 → 依實際量測切成多頁
+// (useDoPages + lib/paginate),每頁一張完整的單(抬頭含「第 i/n 頁」),
+// 螢幕上逐張排列,列印時每張各佔一頁。
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import DoPreview from "./DoPreview";
+import { useDoPages } from "./useDoPages";
 import type { DoForm } from "../lib/contract";
 import {
   DEFAULT_PRINT_SETTINGS,
@@ -147,6 +152,10 @@ export default function PrintPreviewPanel({
     [form],
   );
 
+  // 分頁:畫面外的量測用 DoPreview(measureRef)量出每列高度 → 每頁印哪幾列。
+  const { pages, measureRef } = useDoPages(sheetForm);
+  const pageCount = pages.length;
+
   const transform = offsetTransform(offsetX, offsetY);
   const { xMm, yMm } = offsetToMm(offsetX, offsetY);
   // 紙張本身的 transform:旋轉 90° + 縮放,以紙張中心為原點(置中、不裁切)。
@@ -195,15 +204,24 @@ export default function PrintPreviewPanel({
 
   // 列印目標:只有紙張本身(無工具列、無輔助線)。portal 到 body 下的 .printRoot,
   // 列印時由全域 CSS 顯示、其餘 body 子節點隱藏。
+  // 多頁時每頁一張 .sheet,列印 CSS 讓每張從新的一頁開始。
   const printTarget = (
     <div className={styles.printStage}>
-      <div className={`${styles.sheet} ${rotate ? styles.sheetPortrait : ""}`}>
-        <div className={styles.paper} style={{ transform: paperTransform }}>
-          <div className={styles.shift} style={{ transform }}>
-            <DoPreview form={sheetForm} />
+      {pages.map((p, i) => (
+        <div
+          key={i}
+          className={`${styles.sheet} ${rotate ? styles.sheetPortrait : ""}`}
+        >
+          <div className={styles.paper} style={{ transform: paperTransform }}>
+            <div className={styles.shift} style={{ transform }}>
+              <DoPreview
+                form={sheetForm}
+                page={{ ...p, index: i, total: pageCount }}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 
@@ -460,14 +478,26 @@ export default function PrintPreviewPanel({
         <PrintChecklist />
       </div>
 
-      {/* 螢幕上的「可互動」紙:實體尺寸容器 + 輔助線,供對位。列印時整個 body 子樹隱藏。 */}
+      {/* 螢幕上的「可互動」紙:實體尺寸容器 + 輔助線,供對位。列印時整個 body 子樹隱藏。
+          多頁時逐張排列(每張都是一頁)。 */}
       <div className={styles.stage}>
+        {pageCount > 1 && (
+          <p className={styles.pageCountNote} role="status">
+            品項超過一張的範圍,自動分成 <strong>{pageCount} 頁</strong>
+            列印(每頁抬頭標示「第 i/{pageCount} 頁」)。
+          </p>
+        )}
+        {pages.map((p, i) => (
         <div
+          key={i}
           className={`${styles.sheet} ${rotate ? styles.sheetPortrait : ""}`}
         >
           <div className={styles.paper} style={{ transform: paperTransform }}>
             <div className={styles.shift} style={{ transform }}>
-              <DoPreview form={sheetForm} />
+              <DoPreview
+                form={sheetForm}
+                page={{ ...p, index: i, total: pageCount }}
+              />
             </div>
 
             {/* 紙張邊界 / 中線輔助線:僅螢幕顯示。 */}
@@ -498,6 +528,7 @@ export default function PrintPreviewPanel({
             />
           </div>
         </div>
+        ))}
 
         <p className={styles.stageNote}>
           送貨單 {PAPER_WIDTH_MM} × {PAPER_HEIGHT_MM} mm(中一刀 8.5&quot; ×
@@ -509,6 +540,11 @@ export default function PrintPreviewPanel({
           <span className={styles.stageNoteWindow}>橘色實線 = 可列印範圍</span>
           (斜線區印表機印不到)。皆僅螢幕顯示,不會印出。
         </p>
+      </div>
+
+      {/* 分頁量測用:實際列印寬度、畫面外、不可見、不列印。 */}
+      <div className={styles.measure} ref={measureRef} aria-hidden>
+        <DoPreview form={sheetForm} measure />
       </div>
 
       {/* 列印目標:portal 到 body 下的 .printRoot(螢幕隱藏、列印顯示)。 */}

@@ -3,14 +3,31 @@
 import { forwardRef } from "react";
 import type { DoForm, MetalDoForm, StandardDoForm } from "../lib/contract";
 import { lineSubtotal, grandTotal, documentTotal, formatMoney } from "./doForm";
+import { pageLabel, singlePage, type DoPage } from "../lib/paginate";
 import styles from "./DoPreview.module.css";
+
+/** 這張單是第幾頁、印哪幾列(見 lib/paginate)。 */
+export interface DoPreviewPage extends DoPage {
+  index: number;
+  total: number;
+}
 
 interface DoPreviewProps {
   form: DoForm;
+  /** 要印的那一頁。省略 = 單頁、全部品項(加入分頁前的行為)。 */
+  page?: DoPreviewPage;
+  /**
+   * 量測模式(供分頁計算,畫面外、不印出):放入全部品項 + 2 列空白列當量尺,
+   * 並以 data-pg 標記量測點(area / row / pad / after)。
+   */
+  measure?: boolean;
 }
 
 /** 列印時想保留的最少列數(讓空白單也有完整版面)。 */
 const MIN_ROWS = 8;
+
+/** 量測模式下補的空白列數(量空白列高度用)。 */
+const MEASURE_PADS = 2;
 
 /** 峻晟固定公司資訊(硬編模板)。 */
 const COMPANY = {
@@ -27,7 +44,7 @@ const COMPANY = {
  * root 以 ref 曝露供 html-to-image 擷取成 PNG 送圖形列印。
  */
 const DoPreview = forwardRef<HTMLDivElement, DoPreviewProps>(function DoPreview(
-  { form },
+  { form, page, measure = false },
   ref,
 ) {
   // X/Y 微調:對位用。以 CSS transform 平移整張單 → 一併被 html-to-image 擷取,
@@ -43,9 +60,17 @@ const DoPreview = forwardRef<HTMLDivElement, DoPreviewProps>(function DoPreview(
         style={{ transform: `translate(${dx}px, ${dy}px)` }}
       >
         {form.template === "metal" ? (
-          <MetalSheet form={form} />
+          <MetalSheet
+            form={form}
+            page={resolvePage(form, page, measure)}
+            measure={measure}
+          />
         ) : (
-          <StandardSheet form={form} />
+          <StandardSheet
+            form={form}
+            page={resolvePage(form, page, measure)}
+            measure={measure}
+          />
         )}
       </div>
     </div>
@@ -54,11 +79,56 @@ const DoPreview = forwardRef<HTMLDivElement, DoPreviewProps>(function DoPreview(
 
 export default DoPreview;
 
+/** 各版型最少列數(分頁時最後一頁補白補到這個數)。 */
+export function minRowsFor(template: DoForm["template"]): number {
+  return template === "metal" ? MIN_ROWS : STD_MIN_ROWS;
+}
+
+/** 決定這次 render 要畫哪一頁;量測模式 = 全部品項 + 量尺空白列。 */
+function resolvePage(
+  form: DoForm,
+  page: DoPreviewPage | undefined,
+  measure: boolean,
+): DoPreviewPage {
+  const n = form.lines.length;
+  if (measure) return { start: 0, end: n, pad: MEASURE_PADS, index: 0, total: 1 };
+  if (page) return page;
+  return { ...singlePage(n, minRowsFor(form.template))[0], index: 0, total: 1 };
+}
+
+/**
+ * 頁碼「第 1/3 頁」。單頁時仍佔位(visibility: hidden),抬頭高度不因頁數改變 →
+ * 量測結果與實際列印一致。量測模式一律顯示。
+ */
+function PageNo({ page, measure }: { page: DoPreviewPage; measure: boolean }) {
+  const show = measure || page.total > 1;
+  return (
+    <div className={`${styles.pageNo} ${show ? "" : styles.pageNoHidden}`}>
+      {pageLabel(page.index, Math.max(page.total, 1))}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------- metal 版 */
 
-function MetalSheet({ form }: { form: MetalDoForm }) {
-  const { header, lines } = form;
-  const padCount = Math.max(0, MIN_ROWS - lines.length);
+interface SheetProps<F> {
+  form: F;
+  page: DoPreviewPage;
+  measure: boolean;
+}
+
+function MetalSheet({ form, page, measure }: SheetProps<MetalDoForm>) {
+  const { header } = form;
+  const lines = form.lines.slice(page.start, page.end);
+  const padCount = page.pad;
+  const rowCount = lines.length + padCount;
+  // 備註欄 rowSpan 跨本頁所有列,掛在第一列(沒有品項時掛在第一列空白列)。
+  const remarkCell =
+    rowCount > 0 ? (
+      <td rowSpan={rowCount} className={styles.mRemarkCell}>
+        <div className={styles.mRemarkText}>{header.remark}</div>
+      </td>
+    ) : null;
 
   return (
     <div className={styles.metal}>
@@ -83,6 +153,7 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
         <div className={styles.mTitleBlock}>
           <div className={styles.mTitle}>{COMPANY.title}</div>
           <div className={styles.mDoc}>{COMPANY.doc}</div>
+          <PageNo page={page} measure={measure} />
         </div>
 
         <div className={styles.mCompany}>
@@ -96,7 +167,10 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
         </div>
       </div>
 
-      {/* 品項表:品名｜材質｜尺寸｜片數｜重量 + 備註欄 */}
+      {/* 品項表:品名｜材質｜尺寸｜片數｜重量 + 備註欄。
+          外層 mArea 吃滿抬頭與底部之間的高度並裁切溢出 —— 即使量測有誤差,
+          表格也絕不會壓到底部的承運車行/簽章/三聯。 */}
+      <div className={styles.mArea} data-pg="area">
       <table className={styles.mTable}>
         <thead>
           <tr>
@@ -110,30 +184,28 @@ function MetalSheet({ form }: { form: MetalDoForm }) {
         </thead>
         <tbody>
           {lines.map((line, i) => (
-            <tr key={i}>
+            <tr key={page.start + i} data-pg="row">
               <td>{line.name}</td>
               <td>{line.material}</td>
               <td>{line.size}</td>
               <td className={styles.center}>{line.sheets || ""}</td>
               <td className={styles.center}>{line.weight || ""}</td>
-              {i === 0 ? (
-                <td rowSpan={lines.length + padCount} className={styles.mRemarkCell}>
-                  {header.remark}
-                </td>
-              ) : null}
+              {i === 0 ? remarkCell : null}
             </tr>
           ))}
           {Array.from({ length: padCount }).map((_, i) => (
-            <tr key={`pad-${i}`} className={styles.mPadRow}>
+            <tr key={`pad-${i}`} className={styles.mPadRow} data-pg="pad">
               <td></td>
               <td></td>
               <td></td>
               <td></td>
               <td></td>
+              {i === 0 && lines.length === 0 ? remarkCell : null}
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* 底部:承運車行 / 車號 + 司機簽章 / 客戶簽收 */}
       <div className={styles.mBottom}>
@@ -182,11 +254,14 @@ const STD_HEAD_ROWS: { label: string; key: keyof StandardDoForm["header"] }[] = 
 /** standard 最少列數(公版 K)。 */
 const STD_MIN_ROWS = 6;
 
-function StandardSheet({ form }: { form: StandardDoForm }) {
-  const { header, lines } = form;
+function StandardSheet({ form, page, measure }: SheetProps<StandardDoForm>) {
+  const { header } = form;
+  const lines = form.lines.slice(page.start, page.end);
   const subtotal = grandTotal(form);
   const total = documentTotal(form);
-  const padCount = Math.max(0, STD_MIN_ROWS - lines.length);
+  const padCount = page.pad;
+  // 金額合計/稅額/總計只印在最後一頁(前面的頁留白,版面高度不變)。
+  const isLast = measure || page.index === page.total - 1;
 
   return (
     <>
@@ -205,6 +280,7 @@ function StandardSheet({ form }: { form: StandardDoForm }) {
           <div className={styles.titleBlock}>
             <div className={styles.company}>峻晟金屬股份有限公司</div>
             <div className={styles.docTitle}>出　貨　單</div>
+            <PageNo page={page} measure={measure} />
           </div>
 
           <div className={styles.metaBlock}>
@@ -217,7 +293,9 @@ function StandardSheet({ form }: { form: StandardDoForm }) {
           </div>
         </div>
 
-        {/* 品項表 */}
+        {/* 品項表 + 備註/金額。外層 area 吃滿抬頭與簽核列之間的高度並裁切溢出
+            (理由同 metal 版 mArea);備註/金額框跟著表格,量測時以 data-pg="after" 扣除。 */}
+        <div className={styles.area} data-pg="area">
         <table className={styles.table}>
           <thead>
             <tr>
@@ -231,8 +309,8 @@ function StandardSheet({ form }: { form: StandardDoForm }) {
           </thead>
           <tbody>
             {lines.map((line, i) => (
-              <tr key={i}>
-                <td className={styles.cSeq}>{i + 1}</td>
+              <tr key={page.start + i} data-pg="row">
+                <td className={styles.cSeq}>{page.start + i + 1}</td>
                 <td>{line.name}</td>
                 <td className={styles.center}>{line.unit}</td>
                 <td className={styles.num}>{line.qty || ""}</td>
@@ -245,8 +323,9 @@ function StandardSheet({ form }: { form: StandardDoForm }) {
               </tr>
             ))}
             {Array.from({ length: padCount }).map((_, i) => (
-              <tr key={`pad-${i}`} className={styles.padRow}>
-                <td className={styles.cSeq}>{lines.length + i + 1}</td>
+              <tr key={`pad-${i}`} className={styles.padRow} data-pg="pad">
+                {/* 序號接續;只有最後一頁有補白,序號不會和下一頁撞號。 */}
+                <td className={styles.cSeq}>{page.end + i + 1}</td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -258,7 +337,7 @@ function StandardSheet({ form }: { form: StandardDoForm }) {
         </table>
 
         {/* 備註 + 金額 */}
-        <div className={styles.bottom}>
+        <div className={styles.bottom} data-pg="after">
           <div className={styles.remark}>
             <span className={styles.remarkLabel}>備註</span>
             <span className={styles.remarkValue}>{header.remark}</span>
@@ -267,20 +346,23 @@ function StandardSheet({ form }: { form: StandardDoForm }) {
             <tbody>
               <tr>
                 <td className={styles.totLabel}>金額合計</td>
-                <td className={styles.num}>{formatMoney(subtotal)}</td>
+                <td className={styles.num}>{isLast ? formatMoney(subtotal) : ""}</td>
               </tr>
               <tr>
                 <td className={styles.totLabel}>稅　　額</td>
-                <td className={styles.num}>{formatMoney(form.taxAmount || 0)}</td>
+                <td className={styles.num}>
+                  {isLast ? formatMoney(form.taxAmount || 0) : ""}
+                </td>
               </tr>
               <tr>
                 <td className={styles.totLabel}>總　　計</td>
                 <td className={`${styles.num} ${styles.grand}`}>
-                  {formatMoney(total)}
+                  {isLast ? formatMoney(total) : "續下頁"}
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
         </div>
 
         {/* 簽核列 */}
