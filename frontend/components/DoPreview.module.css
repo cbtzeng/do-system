@@ -178,20 +178,23 @@
 
 /* 空白列高度由 .mTable tbody tr 統一控制(見上)。 */
 
+/* 欄寬(表格寬約 209mm;品項字為等寬字,半形一字約 2.5mm,左右內距合計約 3.4mm):
+   品名 20% ≈ 15 字、材質 10% ≈ 7 字(SPCEN 夠用)、尺寸 47% ≈ 37 字(含「切角X4」也不換行)、
+   片數/重量各 7% ≈ 4 位數、備註 9%(原 15% 的 3/5)。 */
 .mcName {
-  width: 26%;
-}
-.mcMat {
-  width: 16%;
-}
-.mcSize {
   width: 20%;
 }
+.mcMat {
+  width: 10%;
+}
+.mcSize {
+  width: 47%;
+}
 .mcNum {
-  width: 11%;
+  width: 7%;
 }
 .mcRemark {
-  width: 15%;
+  width: 9%;
 }
 
 .mRemarkCell {
